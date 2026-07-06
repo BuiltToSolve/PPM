@@ -23,14 +23,24 @@ export default function LoginPage() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Login failed');
+        let errorMessage = 'Login failed. Please try again.';
+        try {
+          const data = await res.json();
+          errorMessage = data.error || errorMessage;
+        } catch (parseError) {
+          errorMessage = `Server Error (${res.status}): Please check your database connection or try again later.`;
+        }
+        throw new Error(errorMessage);
       }
 
       router.push('/');
       router.refresh();
     } catch (err) {
-      setError(err.message);
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        setError('Network error: Could not connect to the server.');
+      } else {
+        setError(err.message || 'An unexpected error occurred.');
+      }
     } finally {
       setLoading(false);
     }
