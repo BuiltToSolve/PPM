@@ -35,8 +35,7 @@ export default function LoginPage() {
         throw new Error(errorMessage);
       }
 
-      router.push('/');
-      router.refresh();
+      window.location.href = '/';
     } catch (err) {
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
         setError('Network error: Could not connect to the server.');
