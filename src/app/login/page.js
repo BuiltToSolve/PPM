@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import logoPic from '../../../public/logo.png';
 import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
@@ -50,14 +52,24 @@ export default function LoginPage() {
   return (
     <div style={{
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       minHeight: '100vh',
       background: 'var(--bg-main)',
       padding: '20px'
     }}>
+      
+      <Image 
+        src={logoPic} 
+        alt="Logo" 
+        width={200} 
+        style={{ height: 'auto', marginBottom: '24px' }}
+        priority
+      />
       <div className="card" style={{ maxWidth: '400px', width: '100%', padding: '30px' }}>
-        <h1 style={{ textAlign: 'center', marginBottom: '24px', fontSize: '24px' }}>Samrat Energy</h1>
+        
+        
         {error && (
           <div style={{ 
             background: 'var(--danger)', 
