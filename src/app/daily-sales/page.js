@@ -520,6 +520,7 @@ export default function DailySalesPage() {
                   <label className="form-label">Rate (₹)</label>
                   <input
                     className="form-input"
+                    disabled={true}
                     type="number"
                     step="0.01"
                     value={fuelData.rate}

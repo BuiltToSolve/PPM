@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import Toast from '@/components/Toast';
 
 export default function ReportPage() {
@@ -51,8 +52,11 @@ export default function ReportPage() {
 
   return (
     <div className="page">
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 className="page-title">Sales Report</h1>
+        <Link href="/debts" className="btn btn-secondary btn-sm">
+          View All Debts
+        </Link>
       </div>
 
       {/* Date Filter */}
@@ -121,6 +125,14 @@ export default function ReportPage() {
                 </div>
               </div>
             )}
+            {report.grandExtraIncome > 0 && (
+              <div className="stat-card full-width">
+                <div className="stat-value" style={{ fontSize: 18, color: 'var(--success)' }}>
+                  ₹{report.grandExtraIncome.toLocaleString('en-IN')}
+                </div>
+                <div className="stat-label">Total Extra Income</div>
+              </div>
+            )}
           </div>
 
           {/* Daily Breakdown -> Sale Entries */}
@@ -151,6 +163,11 @@ export default function ReportPage() {
                         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                           Pump {sale.pumpNumber} · {sale.fuelType}
                         </div>
+                        {(sale.extraIncome || 0) > 0 && (
+                          <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 2, fontWeight: 500 }}>
+                            + Extra Income: ₹{sale.extraIncome.toLocaleString('en-IN')}
+                          </div>
+                        )}
                       </td>
                       <td className="text-right" style={{ fontWeight: 600 }}>
                         ₹{(sale.totalAmount || 0).toLocaleString('en-IN')}
