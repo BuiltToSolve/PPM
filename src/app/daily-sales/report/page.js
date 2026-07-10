@@ -201,6 +201,13 @@ export default function ReportPage() {
                       <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                         Pump {ds.pumpNumber} · {ds.fuelType} · Sale: ₹{ds.totalAmount?.toLocaleString('en-IN')}
                       </div>
+                      {ds.debtEntries && ds.debtEntries.length > 0 && (
+                        <div style={{ fontSize: 12, color: 'var(--text)', marginTop: 4 }}>
+                          {ds.debtEntries.map((entry, idx) => (
+                            <div key={idx}>• {entry.clientName}: ₹{entry.amount.toLocaleString('en-IN')}</div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div style={{ fontSize: 15, fontWeight: 700, color: ds.debtSettled ? 'var(--text-muted)' : 'var(--danger)' }}>

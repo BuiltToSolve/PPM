@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 
-export async function middleware(request) {
+export async function proxy(request) {
   const { pathname } = request.nextUrl;
   
   // Allow public assets and login/logout API
   if (
     pathname.startsWith('/_next') ||
+    pathname.startsWith('/api/migrate') ||
     pathname === '/api/auth/login' ||
     pathname === '/api/auth/logout' ||
     pathname === '/favicon.ico'

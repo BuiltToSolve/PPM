@@ -30,13 +30,10 @@ export default function DailySalesPage() {
     operatorId: '',
     operatorName: '',
     pumpNumber: '',
-    fuelType: '',
-    openingReading: '',
-    closingReading: '',
-    testingQty: '',
-    rate: '',
+    fuels: {},
     cashAmount: '',
     digitalAmount: '',
+    debtEntries: [],
   });
 
   const fetchAll = useCallback(async () => {
@@ -90,13 +87,10 @@ export default function DailySalesPage() {
       operatorId: '',
       operatorName: '',
       pumpNumber: '',
-      fuelType: '',
-      openingReading: '',
-      closingReading: '',
-      testingQty: '',
-      rate: '',
+      fuels: {},
       cashAmount: '',
       digitalAmount: '',
+      debtEntries: [],
     });
   }
 
@@ -108,17 +102,33 @@ export default function DailySalesPage() {
 
   function openEdit(sale) {
     setEditingSale(sale);
+    const fuelsObj = {};
+    if (sale.fuels) {
+      sale.fuels.forEach(f => {
+        fuelsObj[f.fuelType] = {
+          openingReading: f.openingReading.toString(),
+          closingReading: f.closingReading.toString(),
+          testingQty: f.testingQty?.toString() || '0',
+          rate: f.rate.toString()
+        };
+      });
+    } else if (sale.fuelType) {
+      fuelsObj[sale.fuelType] = {
+        openingReading: sale.openingReading.toString(),
+        closingReading: sale.closingReading.toString(),
+        testingQty: sale.testingQty?.toString() || '0',
+        rate: sale.rate.toString()
+      };
+    }
+
     setFormData({
       operatorId: sale.operatorId,
       operatorName: sale.operatorName,
       pumpNumber: sale.pumpNumber.toString(),
-      fuelType: sale.fuelType,
-      openingReading: sale.openingReading.toString(),
-      closingReading: sale.closingReading.toString(),
-      testingQty: sale.testingQty?.toString() || '0',
-      rate: sale.rate.toString(),
+      fuels: fuelsObj,
       cashAmount: sale.cashAmount.toString(),
       digitalAmount: sale.digitalAmount.toString(),
+      debtEntries: sale.debtEntries || [],
     });
     setShowModal(true);
   }
@@ -136,36 +146,71 @@ export default function DailySalesPage() {
       // Auto-select fuel type when pump changes
       if (field === 'pumpNumber') {
         const fuels = getAvailableFuels(value);
-        if (fuels.length === 1) {
-          updated.fuelType = fuels[0];
-          updated.rate = fuelRates[fuels[0]]?.toString() || '';
-        } else {
-          updated.fuelType = '';
-          updated.rate = '';
-        }
-      }
-
-      // Auto-fill rate when fuel type changes
-      if (field === 'fuelType') {
-        updated.rate = fuelRates[value]?.toString() || '';
+        updated.fuels = {};
+        fuels.forEach(f => {
+          updated.fuels[f] = {
+            openingReading: '',
+            closingReading: '',
+            testingQty: '',
+            rate: fuelRates[f]?.toString() || ''
+          };
+        });
       }
 
       return updated;
     });
   }
 
+  function updateDebtEntry(index, field, value) {
+    const newEntries = [...(formData.debtEntries || [])];
+    newEntries[index] = { ...newEntries[index], [field]: value };
+    setFormData((prev) => ({ ...prev, debtEntries: newEntries }));
+  }
+
+  function addDebtEntry() {
+    setFormData((prev) => ({
+      ...prev,
+      debtEntries: [...(prev.debtEntries || []), { clientName: '', amount: '' }],
+    }));
+  }
+
+  function removeDebtEntry(index) {
+    const newEntries = [...(formData.debtEntries || [])];
+    newEntries.splice(index, 1);
+    setFormData((prev) => ({ ...prev, debtEntries: newEntries }));
+  }
+
+  function updateFuelField(fuelType, field, value) {
+    setFormData(prev => ({
+      ...prev,
+      fuels: {
+        ...prev.fuels,
+        [fuelType]: {
+          ...prev.fuels[fuelType],
+          [field]: value
+        }
+      }
+    }));
+  }
+
   // Computed values
-  const opening = parseFloat(formData.openingReading) || 0;
-  const closing = parseFloat(formData.closingReading) || 0;
-  const testing = parseFloat(formData.testingQty) || 0;
-  const rate = parseFloat(formData.rate) || 0;
-  const totalQty = closing - opening;
-  const saleQty = totalQty - testing;
-  const totalAmount = Math.round(saleQty * rate * 100) / 100;
+  let grandTotalAmount = 0;
+  Object.values(formData.fuels || {}).forEach(f => {
+    const o = parseFloat(f.openingReading) || 0;
+    const c = parseFloat(f.closingReading) || 0;
+    const t = parseFloat(f.testingQty) || 0;
+    const r = parseFloat(f.rate) || 0;
+    grandTotalAmount += ((c - o) - t) * r;
+  });
+  grandTotalAmount = Math.round(grandTotalAmount * 100) / 100;
+
+  const currentCash = parseFloat(formData.cashAmount) || 0;
+  const currentDigital = parseFloat(formData.digitalAmount) || 0;
+  const diffAmount = Math.round((grandTotalAmount - currentCash - currentDigital) * 100) / 100;
 
   async function handleSave(e) {
     e.preventDefault();
-    if (!formData.operatorId || !formData.pumpNumber || !formData.fuelType) {
+    if (!formData.operatorId || !formData.pumpNumber) {
       setToast('Please fill all required fields');
       return;
     }
@@ -173,6 +218,10 @@ export default function DailySalesPage() {
     const payload = {
       ...formData,
       date: selectedDate,
+      fuels: Object.entries(formData.fuels).map(([fuelType, data]) => ({
+        fuelType,
+        ...data
+      }))
     };
 
     try {
@@ -313,26 +362,31 @@ export default function DailySalesPage() {
                 )}
               </div>
             </div>
-            <div className="sale-card-grid">
-              <div className="sale-card-field">
-                <span>Fuel: </span><strong>{sale.fuelType}</strong>
+            {(sale.fuels || [sale]).map((f, idx) => (
+              <div key={idx} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px dashed var(--border)' }}>
+                <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 8, fontSize: 14 }}>{f.fuelType || sale.fuelType}</div>
+                <div className="sale-card-grid">
+                  <div className="sale-card-field">
+                    <span>Rate: </span><strong>₹{f.rate}</strong>
+                  </div>
+                  <div className="sale-card-field">
+                    <span>Opening: </span><strong>{f.openingReading}</strong>
+                  </div>
+                  <div className="sale-card-field">
+                    <span>Closing: </span><strong>{f.closingReading}</strong>
+                  </div>
+                  <div className="sale-card-field">
+                    <span>Total Qty: </span><strong>{f.totalQty?.toFixed(2)}</strong>
+                  </div>
+                  <div className="sale-card-field">
+                    <span>Testing: </span><strong>{f.testingQty?.toFixed(2) || '0.00'}</strong>
+                  </div>
+                  <div className="sale-card-field">
+                    <span>Sale Qty: </span><strong>{f.saleQty?.toFixed(2)}</strong>
+                  </div>
+                </div>
               </div>
-              <div className="sale-card-field">
-                <span>Rate: </span><strong>₹{sale.rate}</strong>
-              </div>
-              <div className="sale-card-field">
-                <span>Opening: </span><strong>{sale.openingReading}</strong>
-              </div>
-              <div className="sale-card-field">
-                <span>Closing: </span><strong>{sale.closingReading}</strong>
-              </div>
-              <div className="sale-card-field">
-                <span>Total Qty: </span><strong>{sale.totalQty?.toFixed(2)}</strong>
-              </div>
-              <div className="sale-card-field">
-                <span>Testing: </span><strong>{sale.testingQty?.toFixed(2) || '0.00'}</strong>
-              </div>
-            </div>
+            ))}
             <div className="sale-card-total">
               <div>
                 <div className="sale-card-amount">₹{sale.totalAmount?.toLocaleString('en-IN')}</div>
@@ -341,12 +395,23 @@ export default function DailySalesPage() {
                   {(sale.debtAmount || 0) > 0 && (
                     <div style={{ color: sale.debtSettled ? 'var(--success)' : 'var(--danger)', fontWeight: 600, marginTop: 4 }}>
                       Debt: ₹{sale.debtAmount?.toLocaleString('en-IN')}
+                      {sale.debtEntries && sale.debtEntries.length > 0 && (
+                        <div style={{ fontSize: 12, fontWeight: 400, color: 'var(--text)', marginTop: 2 }}>
+                          {sale.debtEntries.map((e, i) => (
+                            <div key={i}>• {e.clientName}: ₹{e.amount}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {(sale.extraIncome || 0) > 0 && (
+                    <div style={{ color: 'var(--success)', fontWeight: 600, marginTop: 4 }}>
+                      Extra Income: ₹{sale.extraIncome?.toLocaleString('en-IN')}
                     </div>
                   )}
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                <span className="badge badge-fuel">{sale.saleQty?.toFixed(2)} {sale.fuelType === 'CNG' ? 'kg' : 'L'}</span>
                 {(sale.debtAmount || 0) > 0 && (
                   sale.debtSettled ? (
                     <span className="badge badge-active">Settled</span>
@@ -409,85 +474,68 @@ export default function DailySalesPage() {
                 ))}
               </select>
             </div>
-            <div className="form-group">
-              <label className="form-label">Fuel Type *</label>
-              <select
-                className="form-input"
-                value={formData.fuelType}
-                onChange={(e) => updateField('fuelType', e.target.value)}
-                required
-                disabled={!formData.pumpNumber}
-              >
-                <option value="">Select fuel</option>
-                {formData.pumpNumber &&
-                  getAvailableFuels(formData.pumpNumber).map((f) => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-              </select>
-            </div>
           </div>
 
-          {/* Meter Readings */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Opening Reading</label>
-              <input
-                className="form-input"
-                type="number"
-                step="0.01"
-                value={formData.openingReading}
-                onChange={(e) => updateField('openingReading', e.target.value)}
-                placeholder="0.00"
-              />
+          {/* Fuel Rows */}
+          {Object.entries(formData.fuels || {}).map(([fuelType, fuelData]) => (
+            <div key={fuelType} style={{ padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', marginBottom: '16px' }}>
+              <div style={{ fontWeight: 600, marginBottom: '8px' }}>{fuelType}</div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Opening</label>
+                  <input
+                    className="form-input"
+                    type="number"
+                    step="0.01"
+                    value={fuelData.openingReading}
+                    onChange={(e) => updateFuelField(fuelType, 'openingReading', e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Closing</label>
+                  <input
+                    className="form-input"
+                    type="number"
+                    step="0.01"
+                    value={fuelData.closingReading}
+                    onChange={(e) => updateFuelField(fuelType, 'closingReading', e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Testing Qty</label>
+                  <input
+                    className="form-input"
+                    type="number"
+                    step="0.01"
+                    value={fuelData.testingQty}
+                    onChange={(e) => updateFuelField(fuelType, 'testingQty', e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Rate (₹)</label>
+                  <input
+                    className="form-input"
+                    type="number"
+                    step="0.01"
+                    value={fuelData.rate}
+                    onChange={(e) => updateFuelField(fuelType, 'rate', e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="form-group">
-              <label className="form-label">Closing Reading</label>
-              <input
-                className="form-input"
-                type="number"
-                step="0.01"
-                value={formData.closingReading}
-                onChange={(e) => updateField('closingReading', e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-          </div>
-
-          {/* Testing & Rate */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Testing Qty</label>
-              <input
-                className="form-input"
-                type="number"
-                step="0.01"
-                value={formData.testingQty}
-                onChange={(e) => updateField('testingQty', e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Rate (₹)</label>
-              <input
-                className="form-input"
-                type="number"
-                step="0.01"
-                value={formData.rate}
-                onChange={(e) => updateField('rate', e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-          </div>
+          ))}
 
           {/* Computed Values */}
           <div className="form-row" style={{ marginBottom: 14 }}>
             <div className="form-group">
-              <label className="form-label">Sale Qty</label>
-              <div className="form-computed">{saleQty.toFixed(2)} {formData.fuelType === 'CNG' ? 'kg' : 'L'}</div>
-            </div>
-            <div className="form-group">
               <label className="form-label">Total Amount</label>
-              <div className="form-computed" style={{ color: 'var(--accent)' }}>₹{totalAmount.toLocaleString('en-IN')}</div>
+              <div className="form-computed" style={{ color: 'var(--accent)' }}>₹{grandTotalAmount.toLocaleString('en-IN')}</div>
             </div>
           </div>
 
@@ -517,7 +565,49 @@ export default function DailySalesPage() {
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: 4 }}>
+          {/* Over/Under Collection */}
+          {diffAmount < 0 && (
+            <div style={{ marginTop: 12, padding: 12, backgroundColor: 'rgba(var(--success-rgb), 0.1)', borderRadius: 6, border: '1px solid var(--success)' }}>
+              <div style={{ color: 'var(--success)', fontWeight: 600 }}>Extra Income: ₹{Math.abs(diffAmount).toLocaleString('en-IN')}</div>
+            </div>
+          )}
+
+          {diffAmount > 0 && (
+            <div style={{ marginTop: 12, padding: 12, border: '1px solid var(--border)', borderRadius: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ color: 'var(--danger)', fontWeight: 600 }}>Debt Pending: ₹{diffAmount.toLocaleString('en-IN')}</div>
+                <button type="button" className="btn btn-sm btn-outline" onClick={addDebtEntry}>+ Add Debt</button>
+              </div>
+              {(formData.debtEntries || []).map((entry, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ flex: 2 }}>
+                    <input
+                      className="form-input"
+                      placeholder="Client Name"
+                      value={entry.clientName}
+                      onChange={(e) => updateDebtEntry(idx, 'clientName', e.target.value)}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      className="form-input"
+                      type="number"
+                      step="0.01"
+                      placeholder="Amount"
+                      value={entry.amount}
+                      onChange={(e) => updateDebtEntry(idx, 'amount', e.target.value)}
+                    />
+                  </div>
+                  <button type="button" className="btn-icon danger" onClick={() => removeDebtEntry(idx)}>🗑️</button>
+                </div>
+              ))}
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                Unassigned debt will be assigned to the operator automatically.
+              </div>
+            </div>
+          )}
+
+          <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: 16 }}>
             {editingSale ? 'Update Entry' : 'Save Entry'}
           </button>
         </form>

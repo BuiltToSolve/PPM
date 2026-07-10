@@ -30,52 +30,93 @@ export async function POST(request) {
       operatorId,
       operatorName,
       pumpNumber,
-      fuelType,
-      openingReading,
-      closingReading,
-      testingQty,
-      rate,
+      fuels,
       cashAmount,
       digitalAmount,
     } = body;
 
     // Validation
-    if (!date || !operatorId || !pumpNumber || !fuelType) {
+    if (!date || !operatorId || !pumpNumber || !fuels || !Array.isArray(fuels) || fuels.length === 0) {
       return NextResponse.json(
-        { error: 'Date, operator, pump and fuel type are required' },
+        { error: 'Date, operator, pump and fuels data are required' },
         { status: 400 }
       );
     }
 
-    const opening = parseFloat(openingReading) || 0;
-    const closing = parseFloat(closingReading) || 0;
-    const testing = parseFloat(testingQty) || 0;
-    const fuelRate = parseFloat(rate) || 0;
+    let grandTotalAmount = 0;
+    const processedFuels = fuels.map(f => {
+      const opening = parseFloat(f.openingReading) || 0;
+      const closing = parseFloat(f.closingReading) || 0;
+      const testing = parseFloat(f.testingQty) || 0;
+      const fuelRate = parseFloat(f.rate) || 0;
+
+      const totalQty = closing - opening;
+      const saleQty = totalQty - testing;
+      const totalAmount = saleQty * fuelRate;
+      const roundedTotal = Math.round(totalAmount * 100) / 100;
+      
+      grandTotalAmount += roundedTotal;
+
+      return {
+        fuelType: f.fuelType,
+        openingReading: opening,
+        closingReading: closing,
+        totalQty,
+        testingQty: testing,
+        saleQty,
+        rate: fuelRate,
+        totalAmount: roundedTotal,
+      };
+    });
+
     const cash = parseFloat(cashAmount) || 0;
     const digital = parseFloat(digitalAmount) || 0;
+    const roundedGrandTotal = Math.round(grandTotalAmount * 100) / 100;
+    const rawDiff = Math.round((roundedGrandTotal - cash - digital) * 100) / 100;
 
-    const totalQty = closing - opening;
-    const saleQty = totalQty - testing;
-    const totalAmount = saleQty * fuelRate;
-    const roundedTotal = Math.round(totalAmount * 100) / 100;
-    const debtAmount = Math.round((roundedTotal - cash - digital) * 100) / 100;
+    let debtAmount = 0;
+    let extraIncome = 0;
+    let finalDebtEntries = [];
+
+    if (rawDiff > 0) {
+      debtAmount = rawDiff;
+      const inputDebtEntries = Array.isArray(body.debtEntries) ? body.debtEntries : [];
+      let sumOfDebts = 0;
+      inputDebtEntries.forEach(entry => {
+        const amt = parseFloat(entry.amount) || 0;
+        if (amt > 0) {
+          sumOfDebts += amt;
+          finalDebtEntries.push({
+            clientName: entry.clientName || 'Unknown',
+            amount: amt,
+            settled: false
+          });
+        }
+      });
+      const remainingDebt = Math.round((debtAmount - sumOfDebts) * 100) / 100;
+      if (remainingDebt > 0) {
+        finalDebtEntries.push({
+          clientName: operatorName,
+          amount: remainingDebt,
+          settled: false
+        });
+      }
+    } else if (rawDiff < 0) {
+      extraIncome = Math.abs(rawDiff);
+    }
 
     const sale = {
       date,
       operatorId,
       operatorName,
       pumpNumber: parseInt(pumpNumber),
-      fuelType,
-      openingReading: opening,
-      closingReading: closing,
-      totalQty,
-      testingQty: testing,
-      saleQty,
-      rate: fuelRate,
-      totalAmount: roundedTotal,
+      fuels: processedFuels,
+      totalAmount: roundedGrandTotal,
       cashAmount: cash,
       digitalAmount: digital,
-      debtAmount: debtAmount > 0 ? debtAmount : 0,
+      debtAmount,
+      extraIncome,
+      debtEntries: finalDebtEntries,
       debtSettled: debtAmount <= 0,
       createdAt: new Date(),
       updatedAt: new Date(),

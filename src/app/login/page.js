@@ -57,7 +57,7 @@ export default function LoginPage() {
       padding: '20px'
     }}>
       <div className="card" style={{ maxWidth: '400px', width: '100%', padding: '30px' }}>
-        <h1 style={{ textAlign: 'center', marginBottom: '24px', fontSize: '24px' }}>Petrol Pump Manager</h1>
+        <h1 style={{ textAlign: 'center', marginBottom: '24px', fontSize: '24px' }}>Samrat Energy</h1>
         {error && (
           <div style={{ 
             background: 'var(--danger)', 

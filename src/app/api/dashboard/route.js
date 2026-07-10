@@ -29,11 +29,22 @@ export async function GET(request) {
       totalDigital += sale.digitalAmount || 0;
 
       // Fuel-wise
-      if (!fuelWise[sale.fuelType]) {
-        fuelWise[sale.fuelType] = { qty: 0, amount: 0 };
+      if (sale.fuels && Array.isArray(sale.fuels)) {
+        sale.fuels.forEach((fuel) => {
+          if (!fuelWise[fuel.fuelType]) {
+            fuelWise[fuel.fuelType] = { qty: 0, amount: 0 };
+          }
+          fuelWise[fuel.fuelType].qty += fuel.saleQty || 0;
+          fuelWise[fuel.fuelType].amount += fuel.totalAmount || 0;
+        });
+      } else if (sale.fuelType) {
+        // Fallback for non-migrated
+        if (!fuelWise[sale.fuelType]) {
+          fuelWise[sale.fuelType] = { qty: 0, amount: 0 };
+        }
+        fuelWise[sale.fuelType].qty += sale.saleQty || 0;
+        fuelWise[sale.fuelType].amount += sale.totalAmount || 0;
       }
-      fuelWise[sale.fuelType].qty += sale.saleQty || 0;
-      fuelWise[sale.fuelType].amount += sale.totalAmount || 0;
 
       // Operator-wise
       if (!operatorWise[sale.operatorName]) {

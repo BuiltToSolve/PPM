@@ -29,14 +29,27 @@ export async function GET(request) {
       grandTotal += sale.totalAmount || 0;
       grandCash += sale.cashAmount || 0;
       grandDigital += sale.digitalAmount || 0;
-      grandQty += sale.saleQty || 0;
 
-      if (!fuelBreakdown[sale.fuelType]) {
-        fuelBreakdown[sale.fuelType] = { qty: 0, amount: 0, rate: sale.rate || 0 };
+      if (sale.fuels && Array.isArray(sale.fuels)) {
+        sale.fuels.forEach((fuel) => {
+          grandQty += fuel.saleQty || 0;
+          if (!fuelBreakdown[fuel.fuelType]) {
+            fuelBreakdown[fuel.fuelType] = { qty: 0, amount: 0, rate: fuel.rate || 0 };
+          }
+          fuelBreakdown[fuel.fuelType].qty += fuel.saleQty || 0;
+          fuelBreakdown[fuel.fuelType].amount += fuel.totalAmount || 0;
+          fuelBreakdown[fuel.fuelType].rate = fuel.rate || fuelBreakdown[fuel.fuelType].rate;
+        });
+      } else if (sale.fuelType) {
+        // Fallback for non-migrated
+        grandQty += sale.saleQty || 0;
+        if (!fuelBreakdown[sale.fuelType]) {
+          fuelBreakdown[sale.fuelType] = { qty: 0, amount: 0, rate: sale.rate || 0 };
+        }
+        fuelBreakdown[sale.fuelType].qty += sale.saleQty || 0;
+        fuelBreakdown[sale.fuelType].amount += sale.totalAmount || 0;
+        fuelBreakdown[sale.fuelType].rate = sale.rate || fuelBreakdown[sale.fuelType].rate;
       }
-      fuelBreakdown[sale.fuelType].qty += sale.saleQty || 0;
-      fuelBreakdown[sale.fuelType].amount += sale.totalAmount || 0;
-      fuelBreakdown[sale.fuelType].rate = sale.rate || fuelBreakdown[sale.fuelType].rate;
 
       const saleDebt = sale.debtAmount || 0;
       if (saleDebt > 0) {
@@ -45,10 +58,11 @@ export async function GET(request) {
           _id: sale._id,
           operatorName: sale.operatorName,
           pumpNumber: sale.pumpNumber,
-          fuelType: sale.fuelType,
+          fuelType: sale.fuels ? sale.fuels.map(f => f.fuelType).join(', ') : sale.fuelType,
           totalAmount: sale.totalAmount,
           debtAmount: saleDebt,
           debtSettled: sale.debtSettled || false,
+          debtEntries: sale.debtEntries || [],
         });
         if (!sale.debtSettled) {
           grandUnsettledDebt += saleDebt;

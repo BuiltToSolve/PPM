@@ -34,25 +34,75 @@ export async function PUT(request, { params }) {
     }
 
     // Recalculate if readings changed
-    if (body.openingReading !== undefined || body.closingReading !== undefined) {
-      const opening = parseFloat(body.openingReading) || 0;
-      const closing = parseFloat(body.closingReading) || 0;
-      const testing = parseFloat(body.testingQty) || 0;
-      const fuelRate = parseFloat(body.rate) || 0;
+    if (body.fuels !== undefined) {
+      let grandTotalAmount = 0;
+      
+      const processedFuels = body.fuels.map(f => {
+        const opening = parseFloat(f.openingReading) || 0;
+        const closing = parseFloat(f.closingReading) || 0;
+        const testing = parseFloat(f.testingQty) || 0;
+        const fuelRate = parseFloat(f.rate) || 0;
 
-      updateData.openingReading = opening;
-      updateData.closingReading = closing;
-      updateData.testingQty = testing;
-      updateData.rate = fuelRate;
-      updateData.totalQty = closing - opening;
-      updateData.saleQty = updateData.totalQty - testing;
-      updateData.totalAmount = Math.round(updateData.saleQty * fuelRate * 100) / 100;
+        const totalQty = closing - opening;
+        const saleQty = totalQty - testing;
+        const totalAmount = saleQty * fuelRate;
+        const roundedTotal = Math.round(totalAmount * 100) / 100;
+        
+        grandTotalAmount += roundedTotal;
+
+        return {
+          fuelType: f.fuelType,
+          openingReading: opening,
+          closingReading: closing,
+          totalQty,
+          testingQty: testing,
+          saleQty,
+          rate: fuelRate,
+          totalAmount: roundedTotal,
+        };
+      });
+
+      updateData.fuels = processedFuels;
+      updateData.totalAmount = Math.round(grandTotalAmount * 100) / 100;
       updateData.cashAmount = parseFloat(body.cashAmount) || 0;
       updateData.digitalAmount = parseFloat(body.digitalAmount) || 0;
 
       // Recalculate debt
-      const debtAmount = Math.round((updateData.totalAmount - updateData.cashAmount - updateData.digitalAmount) * 100) / 100;
-      updateData.debtAmount = debtAmount > 0 ? debtAmount : 0;
+      const rawDiff = Math.round((updateData.totalAmount - updateData.cashAmount - updateData.digitalAmount) * 100) / 100;
+      let debtAmount = 0;
+      let extraIncome = 0;
+      let finalDebtEntries = [];
+
+      if (rawDiff > 0) {
+        debtAmount = rawDiff;
+        const inputDebtEntries = Array.isArray(body.debtEntries) ? body.debtEntries : [];
+        let sumOfDebts = 0;
+        inputDebtEntries.forEach(entry => {
+          const amt = parseFloat(entry.amount) || 0;
+          if (amt > 0) {
+            sumOfDebts += amt;
+            finalDebtEntries.push({
+              clientName: entry.clientName || 'Unknown',
+              amount: amt,
+              settled: entry.settled || false
+            });
+          }
+        });
+        const remainingDebt = Math.round((debtAmount - sumOfDebts) * 100) / 100;
+        if (remainingDebt > 0) {
+          finalDebtEntries.push({
+            clientName: updateData.operatorName || body.operatorName,
+            amount: remainingDebt,
+            settled: false
+          });
+        }
+      } else if (rawDiff < 0) {
+        extraIncome = Math.abs(rawDiff);
+      }
+
+      updateData.debtAmount = debtAmount;
+      updateData.extraIncome = extraIncome;
+      updateData.debtEntries = finalDebtEntries;
       updateData.debtSettled = debtAmount <= 0;
     }
 
