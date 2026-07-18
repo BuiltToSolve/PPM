@@ -48,6 +48,20 @@ export default function DebtsPage() {
     }
   }
 
+  async function handleSettleEntry(saleId, index) {
+    try {
+      await fetch(`/api/daily-sales/${saleId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settleDebtEntryIndex: index }),
+      });
+      setToast('Debt entry settled');
+      fetchDebts();
+    } catch (err) {
+      setToast('Error settling debt entry');
+    }
+  }
+
   return (
     <div className="page">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -118,10 +132,33 @@ export default function DebtsPage() {
                         borderRadius: 4,
                         fontSize: 13
                       }}>
-                        <span style={{ fontWeight: 500 }}>{entry.clientName}</span>
-                        <span>₹{entry.amount.toLocaleString('en-IN')}</span>
+                        <span style={{ fontWeight: 500, textDecoration: entry.settled ? 'line-through' : 'none', color: entry.settled ? 'var(--success)' : 'inherit' }}>
+                          {entry.clientName}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ textDecoration: entry.settled ? 'line-through' : 'none', color: entry.settled ? 'var(--success)' : 'inherit' }}>
+                            ₹{entry.amount.toLocaleString('en-IN')}
+                          </span>
+                          {!entry.settled && !sale.debtSettled && userRole !== 'manager' && (
+                            <button
+                              className="btn btn-sm btn-outline"
+                              style={{ fontSize: 11, padding: '4px 10px' }}
+                              onClick={() => handleSettleEntry(sale._id, idx)}
+                            >
+                              Settle
+                            </button>
+                          )}
+                          {entry.settled && (
+                            <span style={{ fontSize: 10, color: 'var(--success)' }}>✓</span>
+                          )}
+                        </div>
                       </div>
                     ))}
+                    {!sale.debtSettled && sale.debtEntries && sale.debtEntries.length > 0 && (
+                      <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4, color: 'var(--danger)', textAlign: 'right' }}>
+                        Remaining: ₹{sale.debtEntries.reduce((sum, e) => sum + (e.settled ? 0 : (e.amount || 0)), 0).toLocaleString('en-IN')}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
@@ -150,7 +187,7 @@ export default function DebtsPage() {
                       }}
                       onClick={() => handleSettle(sale._id)}
                     >
-                      Mark Settled
+                      {sale.debtEntries && sale.debtEntries.length > 0 ? 'Settle All' : 'Mark Settled'}
                     </button>
                   )
                 )}

@@ -50,6 +50,20 @@ export default function ReportPage() {
     }
   }
 
+  async function handleSettleEntry(saleId, index) {
+    try {
+      await fetch(`/api/daily-sales/${saleId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settleDebtEntryIndex: index }),
+      });
+      setToast('Debt entry settled');
+      fetchReport();
+    } catch (err) {
+      setToast('Error settling debt entry');
+    }
+  }
+
   return (
     <div className="page">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -221,8 +235,31 @@ export default function ReportPage() {
                       {ds.debtEntries && ds.debtEntries.length > 0 && (
                         <div style={{ fontSize: 12, color: 'var(--text)', marginTop: 4 }}>
                           {ds.debtEntries.map((entry, idx) => (
-                            <div key={idx}>• {entry.clientName}: ₹{entry.amount.toLocaleString('en-IN')}</div>
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingBottom: 6, maxWidth: '300px' }}>
+                              <span style={{ textDecoration: entry.settled ? 'line-through' : 'none', color: entry.settled ? 'var(--success)' : 'inherit' }}>
+                                • {entry.clientName}: ₹{entry.amount.toLocaleString('en-IN')}
+                              </span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                {!entry.settled && !ds.debtSettled && userRole !== 'manager' && (
+                                  <button
+                                    className="btn btn-sm btn-outline"
+                                    style={{ fontSize: 11, padding: '4px 10px' }}
+                                    onClick={() => handleSettleEntry(ds._id, idx)}
+                                  >
+                                    Settle
+                                  </button>
+                                )}
+                                {entry.settled && (
+                                  <span style={{ fontSize: 10, color: 'var(--success)' }}>✓ Settled</span>
+                                )}
+                              </div>
+                            </div>
                           ))}
+                          {!ds.debtSettled && ds.debtEntries && ds.debtEntries.length > 0 && (
+                            <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4, color: 'var(--danger)' }}>
+                              Remaining: ₹{ds.debtEntries.reduce((sum, e) => sum + (e.settled ? 0 : (e.amount || 0)), 0).toLocaleString('en-IN')}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -246,7 +283,7 @@ export default function ReportPage() {
                             }}
                             onClick={() => handleSettle(ds._id)}
                           >
-                            Mark Settled
+                            {ds.debtEntries && ds.debtEntries.length > 0 ? 'Settle All' : 'Mark Settled'}
                           </button>
                         )
                       )}

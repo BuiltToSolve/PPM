@@ -19,10 +19,18 @@ export async function PUT(request, { params }) {
 
     // Handle debt settle action
     if (body.debtSettled !== undefined && Object.keys(body).length <= 2) {
-      // Only updating debtSettled status
+      let setUpdates = { debtSettled: body.debtSettled, updatedAt: new Date() };
+
+      if (body.debtSettled === true) {
+        const sale = await collection.findOne({ _id: new ObjectId(id) });
+        if (sale && sale.debtEntries && sale.debtEntries.length > 0) {
+          setUpdates.debtEntries = sale.debtEntries.map(e => ({ ...e, settled: true }));
+        }
+      }
+
       const result = await collection.findOneAndUpdate(
         { _id: new ObjectId(id) },
-        { $set: { debtSettled: body.debtSettled, updatedAt: new Date() } },
+        { $set: setUpdates },
         { returnDocument: 'after' }
       );
 
@@ -31,6 +39,27 @@ export async function PUT(request, { params }) {
       }
 
       return NextResponse.json(result);
+    }
+
+    // Handle individual debt entry settlement
+    if (body.settleDebtEntryIndex !== undefined && Object.keys(body).length <= 2) {
+      const sale = await collection.findOne({ _id: new ObjectId(id) });
+      if (!sale) return NextResponse.json({ error: 'Sale not found' }, { status: 404 });
+      
+      if (sale.debtEntries && sale.debtEntries[body.settleDebtEntryIndex]) {
+        sale.debtEntries[body.settleDebtEntryIndex].settled = true;
+        
+        // Check if all are settled
+        const allSettled = sale.debtEntries.every(e => e.settled);
+        
+        const result = await collection.findOneAndUpdate(
+          { _id: new ObjectId(id) },
+          { $set: { debtEntries: sale.debtEntries, debtSettled: allSettled, updatedAt: new Date() } },
+          { returnDocument: 'after' }
+        );
+        return NextResponse.json(result);
+      }
+      return NextResponse.json({ error: 'Debt entry not found' }, { status: 404 });
     }
 
     // Recalculate if readings changed

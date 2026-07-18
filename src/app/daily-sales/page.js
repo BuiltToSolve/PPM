@@ -170,7 +170,7 @@ export default function DailySalesPage() {
   function addDebtEntry() {
     setFormData((prev) => ({
       ...prev,
-      debtEntries: [...(prev.debtEntries || []), { clientName: '', amount: '' }],
+      debtEntries: [...(prev.debtEntries || []), { clientName: '', amount: '', settled: false }],
     }));
   }
 
@@ -207,6 +207,8 @@ export default function DailySalesPage() {
   const currentCash = parseFloat(formData.cashAmount) || 0;
   const currentDigital = parseFloat(formData.digitalAmount) || 0;
   const diffAmount = Math.round((grandTotalAmount - currentCash - currentDigital) * 100) / 100;
+  const assignedDebt = (formData.debtEntries || []).reduce((sum, entry) => sum + (parseFloat(entry.amount) || 0), 0);
+  const pendingDebt = Math.round((diffAmount - assignedDebt) * 100) / 100;
 
   async function handleSave(e) {
     e.preventDefault();
@@ -269,7 +271,15 @@ export default function DailySalesPage() {
   const dayTotal = sales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
   const dayCash = sales.reduce((sum, s) => sum + (s.cashAmount || 0), 0);
   const dayDigital = sales.reduce((sum, s) => sum + (s.digitalAmount || 0), 0);
-  const dayDebt = sales.reduce((sum, s) => sum + ((s.debtAmount || 0) && !s.debtSettled ? (s.debtAmount || 0) : 0), 0);
+  const dayDebt = sales.reduce((sum, s) => {
+    if (!s.debtAmount) return sum;
+    if (s.debtSettled) return sum;
+    if (s.debtEntries && s.debtEntries.length > 0) {
+      const unsettledAmount = s.debtEntries.reduce((acc, e) => !e.settled ? acc + (e.amount || 0) : acc, 0);
+      return sum + unsettledAmount;
+    }
+    return sum + (s.debtAmount || 0);
+  }, 0);
 
   async function handleSettle(id) {
     try {
@@ -282,6 +292,20 @@ export default function DailySalesPage() {
       fetchAll();
     } catch (err) {
       setToast('Error settling debt');
+    }
+  }
+
+  async function handleSettleEntry(id, index) {
+    try {
+      await fetch(`/api/daily-sales/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settleDebtEntryIndex: index }),
+      });
+      setToast('Debt entry settled');
+      fetchAll();
+    } catch (err) {
+      setToast('Error settling debt entry');
     }
   }
 
@@ -396,10 +420,31 @@ export default function DailySalesPage() {
                     <div style={{ color: sale.debtSettled ? 'var(--success)' : 'var(--danger)', fontWeight: 600, marginTop: 4 }}>
                       Debt: ₹{sale.debtAmount?.toLocaleString('en-IN')}
                       {sale.debtEntries && sale.debtEntries.length > 0 && (
-                        <div style={{ fontSize: 12, fontWeight: 400, color: 'var(--text)', marginTop: 2 }}>
+                        <div style={{ fontSize: 12, fontWeight: 400, color: 'var(--text)', marginTop: 4 }}>
                           {sale.debtEntries.map((e, i) => (
-                            <div key={i}>• {e.clientName}: ₹{e.amount}</div>
+                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 6, paddingRight: 8 }}>
+                              <span style={{ textDecoration: e.settled ? 'line-through' : 'none', color: e.settled ? 'var(--success)' : 'inherit' }}>
+                                • {e.clientName}: ₹{e.amount}
+                              </span>
+                              {!e.settled && !sale.debtSettled && userRole !== 'manager' && (
+                                <button
+                                  className="btn btn-sm btn-outline"
+                                  style={{ fontSize: 11, padding: '4px 10px' }}
+                                  onClick={() => handleSettleEntry(sale._id, i)}
+                                >
+                                  Settle
+                                </button>
+                              )}
+                              {e.settled && (
+                                <span style={{ fontSize: 10, color: 'var(--success)' }}>✓ Settled</span>
+                              )}
+                            </div>
                           ))}
+                        </div>
+                      )}
+                      {!sale.debtSettled && sale.debtEntries && sale.debtEntries.length > 0 && (
+                        <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>
+                          Remaining: ₹{sale.debtEntries.reduce((sum, e) => sum + (e.settled ? 0 : (e.amount || 0)), 0).toLocaleString('en-IN')}
                         </div>
                       )}
                     </div>
@@ -422,7 +467,7 @@ export default function DailySalesPage() {
                         style={{ fontSize: 11, padding: '3px 8px', borderColor: 'var(--danger)', color: 'var(--danger)' }}
                         onClick={() => handleSettle(sale._id)}
                       >
-                        Settle
+                        {sale.debtEntries && sale.debtEntries.length > 0 ? 'Settle All' : 'Settle'}
                       </button>
                     )
                   )
@@ -576,7 +621,7 @@ export default function DailySalesPage() {
           {diffAmount > 0 && (
             <div style={{ marginTop: 12, padding: 12, border: '1px solid var(--border)', borderRadius: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ color: 'var(--danger)', fontWeight: 600 }}>Debt Pending: ₹{diffAmount.toLocaleString('en-IN')}</div>
+                <div style={{ color: 'var(--danger)', fontWeight: 600 }}>Debt Pending: ₹{pendingDebt.toLocaleString('en-IN')}</div>
                 <button type="button" className="btn btn-sm btn-outline" onClick={addDebtEntry}>+ Add Debt</button>
               </div>
               {(formData.debtEntries || []).map((entry, idx) => (

@@ -59,7 +59,11 @@ export async function GET(request) {
       if (saleDebt > 0) {
         totalDebt += saleDebt;
         if (!sale.debtSettled) {
-          unsettledDebt += saleDebt;
+          if (sale.debtEntries && sale.debtEntries.length > 0) {
+            unsettledDebt += sale.debtEntries.reduce((acc, e) => !e.settled ? acc + (e.amount || 0) : acc, 0);
+          } else {
+            unsettledDebt += saleDebt;
+          }
         }
       }
     });

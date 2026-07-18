@@ -67,7 +67,11 @@ export async function GET(request) {
           debtEntries: sale.debtEntries || [],
         });
         if (!sale.debtSettled) {
-          grandUnsettledDebt += saleDebt;
+          if (sale.debtEntries && sale.debtEntries.length > 0) {
+            grandUnsettledDebt += sale.debtEntries.reduce((acc, e) => !e.settled ? acc + (e.amount || 0) : acc, 0);
+          } else {
+            grandUnsettledDebt += saleDebt;
+          }
         }
       }
     });
