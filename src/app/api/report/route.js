@@ -19,6 +19,7 @@ export async function GET(request) {
     let grandTotal = 0;
     let grandCash = 0;
     let grandDigital = 0;
+    let grandHp = 0;
     let grandQty = 0;
     let grandDebt = 0;
     let grandUnsettledDebt = 0;
@@ -30,6 +31,7 @@ export async function GET(request) {
       grandTotal += sale.totalAmount || 0;
       grandCash += sale.cashAmount || 0;
       grandDigital += sale.digitalAmount || 0;
+      grandHp += sale.hpAmount || 0;
       grandExtraIncome += sale.extraIncome || 0;
 
       if (sale.fuels && Array.isArray(sale.fuels)) {
@@ -82,6 +84,7 @@ export async function GET(request) {
       grandTotal: Math.round(grandTotal * 100) / 100,
       grandCash: Math.round(grandCash * 100) / 100,
       grandDigital: Math.round(grandDigital * 100) / 100,
+      grandHp: Math.round(grandHp * 100) / 100,
       grandQty: Math.round(grandQty * 100) / 100,
       grandDebt: Math.round(grandDebt * 100) / 100,
       grandUnsettledDebt: Math.round(grandUnsettledDebt * 100) / 100,

@@ -95,9 +95,10 @@ export async function PUT(request, { params }) {
       updateData.totalAmount = Math.round(grandTotalAmount * 100) / 100;
       updateData.cashAmount = parseFloat(body.cashAmount) || 0;
       updateData.digitalAmount = parseFloat(body.digitalAmount) || 0;
+      updateData.hpAmount = parseFloat(body.hpAmount) || 0;
 
       // Recalculate debt
-      const rawDiff = Math.round((updateData.totalAmount - updateData.cashAmount - updateData.digitalAmount) * 100) / 100;
+      const rawDiff = Math.round((updateData.totalAmount - updateData.cashAmount - updateData.digitalAmount - updateData.hpAmount) * 100) / 100;
       let debtAmount = 0;
       let extraIncome = 0;
       let finalDebtEntries = [];

@@ -33,6 +33,7 @@ export default function DailySalesPage() {
     fuels: {},
     cashAmount: '',
     digitalAmount: '',
+    hpAmount: '',
     debtEntries: [],
   });
 
@@ -90,6 +91,7 @@ export default function DailySalesPage() {
       fuels: {},
       cashAmount: '',
       digitalAmount: '',
+      hpAmount: '',
       debtEntries: [],
     });
   }
@@ -128,6 +130,7 @@ export default function DailySalesPage() {
       fuels: fuelsObj,
       cashAmount: sale.cashAmount.toString(),
       digitalAmount: sale.digitalAmount.toString(),
+      hpAmount: sale.hpAmount?.toString() || '',
       debtEntries: sale.debtEntries || [],
     });
     setShowModal(true);
@@ -206,7 +209,8 @@ export default function DailySalesPage() {
 
   const currentCash = parseFloat(formData.cashAmount) || 0;
   const currentDigital = parseFloat(formData.digitalAmount) || 0;
-  const diffAmount = Math.round((grandTotalAmount - currentCash - currentDigital) * 100) / 100;
+  const currentHp = parseFloat(formData.hpAmount) || 0;
+  const diffAmount = Math.round((grandTotalAmount - currentCash - currentDigital - currentHp) * 100) / 100;
   const assignedDebt = (formData.debtEntries || []).reduce((sum, entry) => sum + (parseFloat(entry.amount) || 0), 0);
   const pendingDebt = Math.round((diffAmount - assignedDebt) * 100) / 100;
 
@@ -271,6 +275,7 @@ export default function DailySalesPage() {
   const dayTotal = sales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
   const dayCash = sales.reduce((sum, s) => sum + (s.cashAmount || 0), 0);
   const dayDigital = sales.reduce((sum, s) => sum + (s.digitalAmount || 0), 0);
+  const dayHp = sales.reduce((sum, s) => sum + (s.hpAmount || 0), 0);
   const dayDebt = sales.reduce((sum, s) => {
     if (!s.debtAmount) return sum;
     if (s.debtSettled) return sum;
@@ -349,6 +354,10 @@ export default function DailySalesPage() {
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)' }}>₹{dayDigital.toLocaleString('en-IN')}</div>
                 <div className="stat-label">Digital</div>
               </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-alt, #007aff)' }}>₹{dayHp.toLocaleString('en-IN')}</div>
+                <div className="stat-label">HP</div>
+              </div>
               {dayDebt > 0 && (
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--danger)' }}>₹{dayDebt.toLocaleString('en-IN')}</div>
@@ -415,7 +424,7 @@ export default function DailySalesPage() {
               <div>
                 <div className="sale-card-amount">₹{sale.totalAmount?.toLocaleString('en-IN')}</div>
                 <div className="sale-card-payment">
-                  <div>Cash: ₹{sale.cashAmount?.toLocaleString('en-IN')} | Digital: ₹{sale.digitalAmount?.toLocaleString('en-IN')}</div>
+                  <div>Cash: ₹{sale.cashAmount?.toLocaleString('en-IN')} | Digital: ₹{sale.digitalAmount?.toLocaleString('en-IN')} | HP: ₹{sale.hpAmount?.toLocaleString('en-IN') || 0}</div>
                   {(sale.debtAmount || 0) > 0 && (
                     <div style={{ color: sale.debtSettled ? 'var(--success)' : 'var(--danger)', fontWeight: 600, marginTop: 4 }}>
                       Debt: ₹{sale.debtAmount?.toLocaleString('en-IN')}
@@ -606,6 +615,17 @@ export default function DailySalesPage() {
                 step="0.01"
                 value={formData.digitalAmount}
                 onChange={(e) => updateField('digitalAmount', e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">HP (₹)</label>
+              <input
+                className="form-input"
+                type="number"
+                step="0.01"
+                value={formData.hpAmount}
+                onChange={(e) => updateField('hpAmount', e.target.value)}
                 placeholder="0.00"
               />
             </div>

@@ -18,6 +18,7 @@ export async function GET(request) {
     let totalAmount = 0;
     let totalCash = 0;
     let totalDigital = 0;
+    let totalHp = 0;
     let totalDebt = 0;
     let unsettledDebt = 0;
     const fuelWise = {};
@@ -27,6 +28,7 @@ export async function GET(request) {
       totalAmount += sale.totalAmount || 0;
       totalCash += sale.cashAmount || 0;
       totalDigital += sale.digitalAmount || 0;
+      totalHp += sale.hpAmount || 0;
 
       // Fuel-wise
       if (sale.fuels && Array.isArray(sale.fuels)) {
@@ -48,11 +50,12 @@ export async function GET(request) {
 
       // Operator-wise
       if (!operatorWise[sale.operatorName]) {
-        operatorWise[sale.operatorName] = { amount: 0, cash: 0, digital: 0 };
+        operatorWise[sale.operatorName] = { amount: 0, cash: 0, digital: 0, hp: 0 };
       }
       operatorWise[sale.operatorName].amount += sale.totalAmount || 0;
       operatorWise[sale.operatorName].cash += sale.cashAmount || 0;
       operatorWise[sale.operatorName].digital += sale.digitalAmount || 0;
+      operatorWise[sale.operatorName].hp += sale.hpAmount || 0;
 
       // Debt tracking
       const saleDebt = sale.debtAmount || 0;
@@ -74,6 +77,7 @@ export async function GET(request) {
       totalAmount: Math.round(totalAmount * 100) / 100,
       totalCash: Math.round(totalCash * 100) / 100,
       totalDigital: Math.round(totalDigital * 100) / 100,
+      totalHp: Math.round(totalHp * 100) / 100,
       totalDebt: Math.round(totalDebt * 100) / 100,
       unsettledDebt: Math.round(unsettledDebt * 100) / 100,
       fuelWise,

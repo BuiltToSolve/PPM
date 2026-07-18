@@ -17,7 +17,8 @@ async function migrate() {
     const total = sale.totalAmount || 0;
     const cash = sale.cashAmount || 0;
     const digital = sale.digitalAmount || 0;
-    const debtAmount = Math.round((total - cash - digital) * 100) / 100;
+    const hp = sale.hpAmount || 0;
+    const debtAmount = Math.round((total - cash - digital - hp) * 100) / 100;
 
     await collection.updateOne(
       { _id: sale._id },

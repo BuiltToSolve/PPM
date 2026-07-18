@@ -33,6 +33,7 @@ export async function POST(request) {
       fuels,
       cashAmount,
       digitalAmount,
+      hpAmount,
     } = body;
 
     // Validation
@@ -71,8 +72,9 @@ export async function POST(request) {
 
     const cash = parseFloat(cashAmount) || 0;
     const digital = parseFloat(digitalAmount) || 0;
+    const hp = parseFloat(hpAmount) || 0;
     const roundedGrandTotal = Math.round(grandTotalAmount * 100) / 100;
-    const rawDiff = Math.round((roundedGrandTotal - cash - digital) * 100) / 100;
+    const rawDiff = Math.round((roundedGrandTotal - cash - digital - hp) * 100) / 100;
 
     let debtAmount = 0;
     let extraIncome = 0;
@@ -114,6 +116,7 @@ export async function POST(request) {
       totalAmount: roundedGrandTotal,
       cashAmount: cash,
       digitalAmount: digital,
+      hpAmount: hp,
       debtAmount,
       extraIncome,
       debtEntries: finalDebtEntries,

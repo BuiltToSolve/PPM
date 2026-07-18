@@ -116,6 +116,12 @@ export default function ReportPage() {
               </div>
               <div className="stat-label">Digital</div>
             </div>
+            <div className="stat-card">
+              <div className="stat-value" style={{ fontSize: 18, color: 'var(--accent-alt, #007aff)' }}>
+                ₹{report.grandHp?.toLocaleString('en-IN') || 0}
+              </div>
+              <div className="stat-label">HP</div>
+            </div>
             {report.grandDebt > 0 && (
               <div className="stat-card full-width">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -166,6 +172,7 @@ export default function ReportPage() {
                     <th className="text-right">Amount</th>
                     <th className="text-right">Cash</th>
                     <th className="text-right">Digital</th>
+                    <th className="text-right">HP</th>
                     <th className="text-right">Debt</th>
                   </tr>
                 </thead>
@@ -192,6 +199,9 @@ export default function ReportPage() {
                       <td className="text-right" style={{ color: 'var(--accent)' }}>
                         ₹{(sale.digitalAmount || 0).toLocaleString('en-IN')}
                       </td>
+                      <td className="text-right" style={{ color: 'var(--accent-alt, #007aff)' }}>
+                        ₹{(sale.hpAmount || 0).toLocaleString('en-IN')}
+                      </td>
                       <td className="text-right" style={{ color: !sale.debtSettled && sale.debtAmount > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>
                         {sale.debtAmount > 0 ? `₹${sale.debtAmount.toLocaleString('en-IN')}` : '—'}
                       </td>
@@ -204,6 +214,7 @@ export default function ReportPage() {
                     <td className="text-right">₹{report.grandTotal.toLocaleString('en-IN')}</td>
                     <td className="text-right">₹{report.grandCash.toLocaleString('en-IN')}</td>
                     <td className="text-right">₹{report.grandDigital.toLocaleString('en-IN')}</td>
+                    <td className="text-right">₹{report.grandHp?.toLocaleString('en-IN') || 0}</td>
                     <td className="text-right" style={{ color: 'var(--danger)' }}>
                       {report.grandDebt > 0 ? `₹${report.grandDebt.toLocaleString('en-IN')}` : '—'}
                     </td>

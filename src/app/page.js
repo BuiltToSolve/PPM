@@ -89,6 +89,10 @@ export default function Dashboard() {
           <div className="stat-value" style={{ color: 'var(--accent)' }}>₹{data.totalDigital.toLocaleString('en-IN')}</div>
           <div className="stat-label">Digital</div>
         </div>
+        <div className="stat-card">
+          <div className="stat-value" style={{ color: 'var(--accent-alt, #007aff)' }}>₹{data.totalHp?.toLocaleString('en-IN') || 0}</div>
+          <div className="stat-label">HP</div>
+        </div>
         {(data.unsettledDebt || 0) > 0 && (
           <div className="stat-card full-width">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -129,7 +133,7 @@ export default function Dashboard() {
               <div className="list-item-info">
                 <div className="list-item-name">{operator}</div>
                 <div className="list-item-sub">
-                  Cash: ₹{info.cash.toLocaleString('en-IN')} | Digital: ₹{info.digital.toLocaleString('en-IN')}
+                  Cash: ₹{info.cash.toLocaleString('en-IN')} | Digital: ₹{info.digital.toLocaleString('en-IN')} | HP: ₹{info.hp?.toLocaleString('en-IN') || 0}
                 </div>
               </div>
               <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>

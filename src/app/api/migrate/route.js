@@ -25,6 +25,7 @@ export async function GET() {
           fuels: [],
           cashAmount: 0,
           digitalAmount: 0,
+          hpAmount: 0,
           totalAmount: 0,
           createdAt: sale.createdAt,
           updatedAt: sale.updatedAt,
@@ -45,6 +46,7 @@ export async function GET() {
       });
       group.cashAmount += (sale.cashAmount || 0);
       group.digitalAmount += (sale.digitalAmount || 0);
+      group.hpAmount += (sale.hpAmount || 0);
       group.totalAmount += (sale.totalAmount || 0);
       group.oldIds.push(sale._id);
     }
@@ -56,7 +58,8 @@ export async function GET() {
       const roundedTotal = Math.round(group.totalAmount * 100) / 100;
       const cash = Math.round(group.cashAmount * 100) / 100;
       const digital = Math.round(group.digitalAmount * 100) / 100;
-      const debtAmount = Math.round((roundedTotal - cash - digital) * 100) / 100;
+      const hp = Math.round(group.hpAmount * 100) / 100;
+      const debtAmount = Math.round((roundedTotal - cash - digital - hp) * 100) / 100;
 
       const newSale = {
         date: group.date,
@@ -67,6 +70,7 @@ export async function GET() {
         totalAmount: roundedTotal,
         cashAmount: cash,
         digitalAmount: digital,
+        hpAmount: hp,
         debtAmount: debtAmount > 0 ? debtAmount : 0,
         debtSettled: debtAmount <= 0,
         createdAt: group.createdAt,
