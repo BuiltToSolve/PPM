@@ -492,6 +492,7 @@ export default function DailySalesPage() {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         title={editingSale ? 'Edit Sale Entry' : 'Add Sale Entry'}
+        disableOutsideClick={true}
       >
         <form onSubmit={handleSave}>
           {/* Operator */}
