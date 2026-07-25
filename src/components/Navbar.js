@@ -6,6 +6,10 @@ import { usePathname } from 'next/navigation';
 export default function Navbar() {
   const pathname = usePathname();
 
+  if (pathname === '/login') {
+    return null;
+  }
+
   const navItems = [
     { href: '/', label: 'Dashboard', icon: '📊' },
     { href: '/daily-sales', label: 'Sales', icon: '⛽' },

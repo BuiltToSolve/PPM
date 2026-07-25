@@ -137,6 +137,9 @@ export default function LoginPage() {
           </button>
         </form>
       </div>
+      <div style={{ marginTop: '30px', color: '#999', fontSize: '14px', textAlign: 'center' }}>
+        Developed by Teja Enterprises
+      </div>
     </div>
   );
 }
