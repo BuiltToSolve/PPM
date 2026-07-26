@@ -276,12 +276,11 @@ export default function DailySalesPage() {
   const dayCash = sales.reduce((sum, s) => sum + (s.cashAmount || 0), 0);
   const dayDigital = sales.reduce((sum, s) => sum + (s.digitalAmount || 0), 0);
   const dayHp = sales.reduce((sum, s) => sum + (s.hpAmount || 0), 0);
-  const dayDebt = sales.reduce((sum, s) => {
-    if (!s.debtAmount) return sum;
-    if (s.debtSettled) return sum;
+  const dayTotalDebt = sales.reduce((sum, s) => sum + (s.debtAmount || 0), 0);
+  const dayUnsettledDebt = sales.reduce((sum, s) => {
+    if (!s.debtAmount || s.debtSettled) return sum;
     if (s.debtEntries && s.debtEntries.length > 0) {
-      const unsettledAmount = s.debtEntries.reduce((acc, e) => !e.settled ? acc + (e.amount || 0) : acc, 0);
-      return sum + unsettledAmount;
+      return sum + s.debtEntries.reduce((acc, e) => !e.settled ? acc + (e.amount || 0) : acc, 0);
     }
     return sum + (s.debtAmount || 0);
   }, 0);
@@ -343,33 +342,46 @@ export default function DailySalesPage() {
 
       {/* Day Summary */}
       {sales.length > 0 && (
-        <div className="stat-card" style={{ marginBottom: 16 }}>          
-          <div>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>₹{dayCash.toLocaleString('en-IN')}</div>
-                <div className="stat-label">Cash</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)' }}>₹{dayDigital.toLocaleString('en-IN')}</div>
-                <div className="stat-label">Digital</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent-alt, #007aff)' }}>₹{dayHp.toLocaleString('en-IN')}</div>
-                <div className="stat-label">HP</div>
-              </div>
-              {dayDebt > 0 && (
+        <div className="stats-grid" style={{ marginBottom: 20 }}>
+          <div className="stat-card accent full-width" style={{ textAlign: 'center' }}>
+            <div className="stat-value">₹{dayTotal.toLocaleString('en-IN')}</div>
+            <div className="stat-label" style={{ color: 'rgba(255,255,255,0.8)' }}>Total Sale</div>
+          </div>
+          <div className="stat-card" style={{ textAlign: 'center' }}>
+            <div className="stat-value" style={{ color: 'var(--success)' }}>₹{dayCash.toLocaleString('en-IN')}</div>
+            <div className="stat-label">Cash</div>
+          </div>
+          <div className="stat-card" style={{ textAlign: 'center' }}>
+            <div className="stat-value" style={{ color: 'var(--accent)' }}>₹{dayDigital.toLocaleString('en-IN')}</div>
+            <div className="stat-label">Digital</div>
+          </div>
+          <div className="stat-card" style={{ textAlign: 'center' }}>
+            <div className="stat-value" style={{ color: 'var(--accent-alt, #007aff)' }}>₹{dayHp.toLocaleString('en-IN')}</div>
+            <div className="stat-label">HP</div>
+          </div>
+          {dayTotalDebt > 0 && (
+            <div className="stat-card">
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--danger)' }}>₹{dayDebt.toLocaleString('en-IN')}</div>
-                  <div className="stat-label">Debt</div>
+                  <div className="stat-value" style={{ fontSize: 18, color: 'var(--danger)' }}>
+                    ₹{dayTotalDebt.toLocaleString('en-IN')}
+                  </div>
+                  <div className="stat-label">Total Debt</div>
                 </div>
-              )}
+                {dayUnsettledDebt > 0 && (
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--warning)' }}>
+                      ₹{dayUnsettledDebt.toLocaleString('en-IN')}
+                    </div>
+                    <div className="stat-label">Unsettled</div>
+                  </div>
+                )}
+                {dayUnsettledDebt === 0 && dayTotalDebt > 0 && (
+                  <span className="badge badge-active" style={{ fontSize: 13, padding: '5px 12px' }}>All Settled ✓</span>
+                )}
+              </div>
             </div>
-          </div>
-          <div style={{ textAlign: 'center', marginTop: 16 }}>
-            <div className="stat-value" style={{ fontSize: 18 }}>₹{dayTotal.toLocaleString('en-IN')}</div>
-            <div className="stat-label">Total</div>
-          </div>
+          )}
         </div>
       )}
 
@@ -396,90 +408,108 @@ export default function DailySalesPage() {
               </div>
             </div>
             {(sale.fuels || [sale]).map((f, idx) => (
-              <div key={idx} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: '1px dashed var(--border)' }}>
-                <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 8, fontSize: 14 }}>{f.fuelType || sale.fuelType}</div>
-                <div className="sale-card-grid">
-                  <div className="sale-card-field">
-                    <span>Rate: </span><strong>₹{f.rate}</strong>
+              <div key={idx} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border-light)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>{f.fuelType || sale.fuelType}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Rate: <strong style={{ color: 'var(--text-primary)' }}>₹{f.rate}</strong></div>
+                </div>
+
+                <div style={{ background: 'var(--bg-input)', padding: '10px 12px', borderRadius: '8px', fontSize: 13 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Readings (Op → Cl)</span>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{f.openingReading} <span style={{ color: 'var(--text-muted)' }}>→</span> {f.closingReading}</span>
                   </div>
-                  <div className="sale-card-field">
-                    <span>Opening: </span><strong>{f.openingReading}</strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Meter Sale</span>
+                    <span style={{ fontWeight: 600 }}>{f.totalQty?.toFixed(2)} L</span>
                   </div>
-                  <div className="sale-card-field">
-                    <span>Closing: </span><strong>{f.closingReading}</strong>
-                  </div>
-                  <div className="sale-card-field">
-                    <span>Total Qty: </span><strong>{f.totalQty?.toFixed(2)}</strong>
-                  </div>
-                  <div className="sale-card-field">
-                    <span>Testing: </span><strong>{f.testingQty?.toFixed(2) || '0.00'}</strong>
-                  </div>
-                  <div className="sale-card-field">
-                    <span>Sale Qty: </span><strong>{f.saleQty?.toFixed(2)}</strong>
+                  {(f.testingQty > 0) && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, color: 'var(--warning)' }}>
+                      <span>Less: Testing</span>
+                      <span style={{ fontWeight: 600 }}>- {f.testingQty?.toFixed(2)} L</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '1px dashed var(--border)', fontSize: 14 }}>
+                    <span style={{ fontWeight: 600 }}>Net Sale</span>
+                    <strong style={{ color: 'var(--accent)' }}>{f.saleQty?.toFixed(2)} L</strong>
                   </div>
                 </div>
               </div>
             ))}
-            <div className="sale-card-total">
-              <div>
-                <div className="sale-card-amount">₹{sale.totalAmount?.toLocaleString('en-IN')}</div>
-                <div className="sale-card-payment">
-                  <div>Cash: ₹{sale.cashAmount?.toLocaleString('en-IN')} | Digital: ₹{sale.digitalAmount?.toLocaleString('en-IN')} | HP: ₹{sale.hpAmount?.toLocaleString('en-IN') || 0}</div>
-                  {(sale.debtAmount || 0) > 0 && (
-                    <div style={{ color: sale.debtSettled ? 'var(--success)' : 'var(--danger)', fontWeight: 600, marginTop: 4 }}>
-                      Debt: ₹{sale.debtAmount?.toLocaleString('en-IN')}
-                      {sale.debtEntries && sale.debtEntries.length > 0 && (
-                        <div style={{ fontSize: 12, fontWeight: 400, color: 'var(--text)', marginTop: 4 }}>
-                          {sale.debtEntries.map((e, i) => (
-                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingBottom: 6, paddingRight: 8 }}>
-                              <span style={{ textDecoration: e.settled ? 'line-through' : 'none', color: e.settled ? 'var(--success)' : 'inherit' }}>
-                                • {e.clientName}: ₹{e.amount}
-                              </span>
+            <div className="sale-card-total" style={{ borderTop: 'none', paddingTop: 0, marginTop: 0 }}>
+              <div style={{ width: '100%' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: 600 }}>Total Amount</div>
+                  <div className="sale-card-amount">₹{sale.totalAmount?.toLocaleString('en-IN')}</div>
+                </div>
+
+                <div className="payment-badges">
+                  {sale.cashAmount > 0 && <span className="payment-badge cash">💵 ₹{sale.cashAmount?.toLocaleString('en-IN')}</span>}
+                  {sale.digitalAmount > 0 && <span className="payment-badge digital">📱 ₹{sale.digitalAmount?.toLocaleString('en-IN')}</span>}
+                  {sale.hpAmount > 0 && <span className="payment-badge hp">⛽ ₹{sale.hpAmount?.toLocaleString('en-IN')}</span>}
+                </div>
+
+                {(sale.debtAmount || 0) > 0 && (
+                  <div style={{ marginTop: 12, padding: 12, borderRadius: 8, border: `1px solid ${sale.debtSettled ? 'rgba(64, 192, 87, 0.3)' : 'rgba(250, 82, 82, 0.3)'}`, background: sale.debtSettled ? 'rgba(64, 192, 87, 0.05)' : 'rgba(250, 82, 82, 0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: sale.debtEntries?.length > 0 ? 8 : 0 }}>
+                      <div style={{ color: sale.debtSettled ? 'var(--success)' : 'var(--danger)', fontWeight: 700 }}>
+                        Debt: ₹{sale.debtAmount?.toLocaleString('en-IN')}
+                      </div>
+                      <div>
+                        {sale.debtSettled ? (
+                          <span className="badge badge-active">Settled</span>
+                        ) : (
+                          userRole !== 'manager' && (
+                            <button
+                              className="btn btn-sm btn-outline"
+                              style={{ fontSize: 11, padding: '3px 8px', borderColor: 'var(--danger)', color: 'var(--danger)', background: 'white' }}
+                              onClick={() => handleSettle(sale._id)}
+                            >
+                              {sale.debtEntries && sale.debtEntries.length > 0 ? 'Settle All' : 'Settle'}
+                            </button>
+                          )
+                        )}
+                      </div>
+                    </div>
+
+                    {sale.debtEntries && sale.debtEntries.length > 0 && (
+                      <div style={{ fontSize: 13 }}>
+                        {sale.debtEntries.map((e, i) => (
+                          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, paddingBottom: 6, borderBottom: '1px dashed rgba(0,0,0,0.1)' }}>
+                            <span style={{ textDecoration: e.settled ? 'line-through' : 'none', color: e.settled ? 'var(--success)' : 'var(--text-primary)', fontWeight: 500 }}>
+                              {e.clientName}: ₹{e.amount}
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               {!e.settled && !sale.debtSettled && userRole !== 'manager' && (
                                 <button
                                   className="btn btn-sm btn-outline"
-                                  style={{ fontSize: 11, padding: '4px 10px' }}
+                                  style={{ fontSize: 11, padding: '2px 8px', background: 'white' }}
                                   onClick={() => handleSettleEntry(sale._id, i)}
                                 >
                                   Settle
                                 </button>
                               )}
                               {e.settled && (
-                                <span style={{ fontSize: 10, color: 'var(--success)' }}>✓ Settled</span>
+                                <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✓</span>
                               )}
                             </div>
-                          ))}
-                        </div>
-                      )}
-                      {!sale.debtSettled && sale.debtEntries && sale.debtEntries.length > 0 && (
-                        <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>
-                          Remaining: ₹{sale.debtEntries.reduce((sum, e) => sum + (e.settled ? 0 : (e.amount || 0)), 0).toLocaleString('en-IN')}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {(sale.extraIncome || 0) > 0 && (
-                    <div style={{ color: 'var(--success)', fontWeight: 600, marginTop: 4 }}>
-                      Extra Income: ₹{sale.extraIncome?.toLocaleString('en-IN')}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                {(sale.debtAmount || 0) > 0 && (
-                  sale.debtSettled ? (
-                    <span className="badge badge-active">Settled</span>
-                  ) : (
-                    userRole !== 'manager' && (
-                      <button
-                        className="btn btn-sm btn-outline"
-                        style={{ fontSize: 11, padding: '3px 8px', borderColor: 'var(--danger)', color: 'var(--danger)' }}
-                        onClick={() => handleSettle(sale._id)}
-                      >
-                        {sale.debtEntries && sale.debtEntries.length > 0 ? 'Settle All' : 'Settle'}
-                      </button>
-                    )
-                  )
+                          </div>
+                        ))}
+                        {!sale.debtSettled && (
+                          <div style={{ fontSize: 12, fontWeight: 600, marginTop: 8, color: 'var(--danger)' }}>
+                            Pending: ₹{sale.debtEntries.reduce((sum, e) => sum + (e.settled ? 0 : (e.amount || 0)), 0).toLocaleString('en-IN')}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {(sale.extraIncome || 0) > 0 && (
+                  <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: 'rgba(64, 192, 87, 0.1)', border: '1px solid rgba(64, 192, 87, 0.3)', color: 'var(--success)', fontWeight: 600, fontSize: 13, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Extra Income</span>
+                    <span>₹{sale.extraIncome?.toLocaleString('en-IN')}</span>
+                  </div>
                 )}
               </div>
             </div>

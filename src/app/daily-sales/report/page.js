@@ -1,27 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import Toast from '@/components/Toast';
 
-export default function ReportPage() {
+function ReportContent() {
+  const searchParams = useSearchParams();
   const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-
-  const [date, setDate] = useState(todayStr);
+  
+  const queryDate = searchParams.get('date');
+  const [date, setDate] = useState(queryDate || todayStr);
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
   const [userRole, setUserRole] = useState('admin');
 
-  async function fetchReport() {
-    if (!date) {
+  async function fetchReport(targetDate = date) {
+    if (!targetDate) {
       setToast('Please select a date');
       return;
     }
     setLoading(true);
     try {
       const [res, authRes] = await Promise.all([
-        fetch(`/api/report?date=${date}`),
+        fetch(`/api/report?date=${targetDate}`),
         fetch('/api/auth/me')
       ]);
       const data = await res.json();
@@ -34,6 +37,12 @@ export default function ReportPage() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (queryDate) {
+      fetchReport(queryDate);
+    }
+  }, [queryDate]);
 
   async function handleSettle(saleId) {
     try {
@@ -66,11 +75,8 @@ export default function ReportPage() {
 
   return (
     <div className="page">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header">
         <h1 className="page-title">Sales Report</h1>
-        <Link href="/debts" className="btn btn-secondary btn-sm">
-          View All Debts
-        </Link>
       </div>
 
       {/* Date Filter */}
@@ -87,7 +93,7 @@ export default function ReportPage() {
         </div>
         <button
           className="btn btn-primary btn-block"
-          onClick={fetchReport}
+          onClick={() => fetchReport(date)}
           disabled={loading}
           style={{ marginTop: 4 }}
         >
@@ -123,8 +129,8 @@ export default function ReportPage() {
               <div className="stat-label">HP</div>
             </div>
             {report.grandDebt > 0 && (
-              <div className="stat-card full-width">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="stat-card">
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <div>
                     <div className="stat-value" style={{ fontSize: 18, color: 'var(--danger)' }}>
                       ₹{report.grandDebt.toLocaleString('en-IN')}
@@ -170,10 +176,7 @@ export default function ReportPage() {
                   <tr>
                     <th>Details</th>
                     <th className="text-right">Amount</th>
-                    <th className="text-right">Cash</th>
-                    <th className="text-right">Digital</th>
-                    <th className="text-right">HP</th>
-                    <th className="text-right">Debt</th>
+                    <th className="text-right">Payments & Debt</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -193,17 +196,13 @@ export default function ReportPage() {
                       <td className="text-right" style={{ fontWeight: 600 }}>
                         ₹{(sale.totalAmount || 0).toLocaleString('en-IN')}
                       </td>
-                      <td className="text-right" style={{ color: 'var(--success)' }}>
-                        ₹{(sale.cashAmount || 0).toLocaleString('en-IN')}
-                      </td>
-                      <td className="text-right" style={{ color: 'var(--accent)' }}>
-                        ₹{(sale.digitalAmount || 0).toLocaleString('en-IN')}
-                      </td>
-                      <td className="text-right" style={{ color: 'var(--accent-alt, #007aff)' }}>
-                        ₹{(sale.hpAmount || 0).toLocaleString('en-IN')}
-                      </td>
-                      <td className="text-right" style={{ color: !sale.debtSettled && sale.debtAmount > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>
-                        {sale.debtAmount > 0 ? `₹${sale.debtAmount.toLocaleString('en-IN')}` : '—'}
+                      <td className="text-right">
+                        <div className="payment-badges" style={{ justifyContent: 'flex-end', marginTop: 0 }}>
+                          {(sale.cashAmount > 0) && <span className="payment-badge cash" style={{ padding: '4px 8px', fontSize: 12 }}>💵 ₹{sale.cashAmount.toLocaleString('en-IN')}</span>}
+                          {(sale.digitalAmount > 0) && <span className="payment-badge digital" style={{ padding: '4px 8px', fontSize: 12 }}>📱 ₹{sale.digitalAmount.toLocaleString('en-IN')}</span>}
+                          {(sale.hpAmount > 0) && <span className="payment-badge hp" style={{ padding: '4px 8px', fontSize: 12 }}>⛽ ₹{sale.hpAmount.toLocaleString('en-IN')}</span>}
+                          {(sale.debtAmount > 0) && <span className={`payment-badge ${sale.debtSettled ? 'cash' : 'debt'}`} style={{ padding: '4px 8px', fontSize: 12 }}>📝 ₹{sale.debtAmount.toLocaleString('en-IN')}</span>}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -211,12 +210,14 @@ export default function ReportPage() {
                 <tfoot>
                   <tr>
                     <td>Total</td>
-                    <td className="text-right">₹{report.grandTotal.toLocaleString('en-IN')}</td>
-                    <td className="text-right">₹{report.grandCash.toLocaleString('en-IN')}</td>
-                    <td className="text-right">₹{report.grandDigital.toLocaleString('en-IN')}</td>
-                    <td className="text-right">₹{report.grandHp?.toLocaleString('en-IN') || 0}</td>
-                    <td className="text-right" style={{ color: 'var(--danger)' }}>
-                      {report.grandDebt > 0 ? `₹${report.grandDebt.toLocaleString('en-IN')}` : '—'}
+                    <td className="text-right" style={{ fontWeight: 700 }}>₹{report.grandTotal.toLocaleString('en-IN')}</td>
+                    <td className="text-right">
+                      <div className="payment-badges" style={{ justifyContent: 'flex-end', marginTop: 0 }}>
+                        <span className="payment-badge cash" style={{ padding: '4px 8px', fontSize: 12 }}>💵 ₹{report.grandCash.toLocaleString('en-IN')}</span>
+                        <span className="payment-badge digital" style={{ padding: '4px 8px', fontSize: 12 }}>📱 ₹{report.grandDigital.toLocaleString('en-IN')}</span>
+                        <span className="payment-badge hp" style={{ padding: '4px 8px', fontSize: 12 }}>⛽ ₹{(report.grandHp || 0).toLocaleString('en-IN')}</span>
+                        {report.grandDebt > 0 && <span className="payment-badge debt" style={{ padding: '4px 8px', fontSize: 12 }}>📝 ₹{report.grandDebt.toLocaleString('en-IN')}</span>}
+                      </div>
                     </td>
                   </tr>
                 </tfoot>
@@ -228,77 +229,78 @@ export default function ReportPage() {
           {report.debtSales.length > 0 && (
             <>
               <div className="section-title">Debt Details</div>
-              <div className="card" style={{ marginBottom: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
                 {report.debtSales.map((ds) => (
                   <div key={ds._id} style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '10px 0',
-                    borderBottom: '1px solid var(--border-light)',
-                    gap: 8,
+                    padding: 12,
+                    borderRadius: 8,
+                    border: `1px solid ${ds.debtSettled ? 'rgba(64, 192, 87, 0.3)' : 'rgba(250, 82, 82, 0.3)'}`,
+                    background: ds.debtSettled ? 'rgba(64, 192, 87, 0.05)' : 'rgba(250, 82, 82, 0.05)'
                   }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{ds.operatorName}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                        Pump {ds.pumpNumber} · {ds.fuelType} · Sale: ₹{ds.totalAmount?.toLocaleString('en-IN')}
-                      </div>
-                      {ds.debtEntries && ds.debtEntries.length > 0 && (
-                        <div style={{ fontSize: 12, color: 'var(--text)', marginTop: 4 }}>
-                          {ds.debtEntries.map((entry, idx) => (
-                            <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingBottom: 6, maxWidth: '300px' }}>
-                              <span style={{ textDecoration: entry.settled ? 'line-through' : 'none', color: entry.settled ? 'var(--success)' : 'inherit' }}>
-                                • {entry.clientName}: ₹{entry.amount.toLocaleString('en-IN')}
-                              </span>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                {!entry.settled && !ds.debtSettled && userRole !== 'manager' && (
-                                  <button
-                                    className="btn btn-sm btn-outline"
-                                    style={{ fontSize: 11, padding: '4px 10px' }}
-                                    onClick={() => handleSettleEntry(ds._id, idx)}
-                                  >
-                                    Settle
-                                  </button>
-                                )}
-                                {entry.settled && (
-                                  <span style={{ fontSize: 10, color: 'var(--success)' }}>✓ Settled</span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                          {!ds.debtSettled && ds.debtEntries && ds.debtEntries.length > 0 && (
-                            <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4, color: 'var(--danger)' }}>
-                              Remaining: ₹{ds.debtEntries.reduce((sum, e) => sum + (e.settled ? 0 : (e.amount || 0)), 0).toLocaleString('en-IN')}
-                            </div>
-                          )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: ds.debtEntries?.length > 0 ? 12 : 0 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>{ds.operatorName}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                          Pump {ds.pumpNumber} · {ds.fuelType} · Sale: ₹{ds.totalAmount?.toLocaleString('en-IN')}
                         </div>
-                      )}
-                    </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: ds.debtSettled ? 'var(--text-muted)' : 'var(--danger)' }}>
-                        ₹{ds.debtAmount.toLocaleString('en-IN')}
                       </div>
-                      {ds.debtSettled ? (
-                        <span className="badge badge-active" style={{ marginTop: 4 }}>Settled ✓</span>
-                      ) : (
-                        userRole !== 'manager' && (
-                          <button
-                            className="btn btn-sm"
-                            style={{
-                              marginTop: 4,
-                              fontSize: 12,
-                              padding: '4px 12px',
-                              background: 'var(--danger)',
-                              color: 'white',
-                              borderRadius: 6,
-                            }}
-                            onClick={() => handleSettle(ds._id)}
-                          >
-                            {ds.debtEntries && ds.debtEntries.length > 0 ? 'Settle All' : 'Mark Settled'}
-                          </button>
-                        )
-                      )}
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: ds.debtSettled ? 'var(--success)' : 'var(--danger)' }}>
+                          Debt: ₹{ds.debtAmount.toLocaleString('en-IN')}
+                        </div>
+                        {ds.debtSettled ? (
+                          <span className="badge badge-active" style={{ marginTop: 4 }}>Settled ✓</span>
+                        ) : (
+                          userRole !== 'manager' && (
+                            <button
+                              className="btn btn-sm btn-outline"
+                              style={{
+                                marginTop: 4,
+                                fontSize: 11,
+                                padding: '3px 8px',
+                                borderColor: 'var(--danger)',
+                                color: 'var(--danger)',
+                                background: 'white'
+                              }}
+                              onClick={() => handleSettle(ds._id)}
+                            >
+                              {ds.debtEntries && ds.debtEntries.length > 0 ? 'Settle All' : 'Mark Settled'}
+                            </button>
+                          )
+                        )}
+                      </div>
                     </div>
+
+                    {ds.debtEntries && ds.debtEntries.length > 0 && (
+                      <div style={{ fontSize: 13, borderTop: '1px dashed rgba(0,0,0,0.1)', paddingTop: 8 }}>
+                        {ds.debtEntries.map((entry, idx) => (
+                          <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, paddingBottom: 6 }}>
+                            <span style={{ textDecoration: entry.settled ? 'line-through' : 'none', color: entry.settled ? 'var(--success)' : 'var(--text-primary)', fontWeight: 500 }}>
+                              {entry.clientName}: ₹{entry.amount.toLocaleString('en-IN')}
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {!entry.settled && !ds.debtSettled && userRole !== 'manager' && (
+                                <button
+                                  className="btn btn-sm btn-outline"
+                                  style={{ fontSize: 11, padding: '2px 8px', background: 'white' }}
+                                  onClick={() => handleSettleEntry(ds._id, idx)}
+                                >
+                                  Settle
+                                </button>
+                              )}
+                              {entry.settled && (
+                                <span style={{ fontSize: 11, color: 'var(--success)', fontWeight: 600 }}>✓</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        {!ds.debtSettled && ds.debtEntries && ds.debtEntries.length > 0 && (
+                          <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4, color: 'var(--danger)' }}>
+                            Pending: ₹{ds.debtEntries.reduce((sum, e) => sum + (e.settled ? 0 : (e.amount || 0)), 0).toLocaleString('en-IN')}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -309,24 +311,29 @@ export default function ReportPage() {
           {Object.keys(report.fuelBreakdown).length > 0 && (
             <>
               <div className="section-title">Fuel-wise Details</div>
-              <div className="card" style={{ marginBottom: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
                 {Object.entries(report.fuelBreakdown).map(([fuel, info]) => (
                   <div key={fuel} style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    padding: '6px 0',
-                    borderBottom: '1px solid var(--border-light)',
+                    padding: '12px 16px',
+                    borderRadius: 8,
+                    background: 'var(--bg-input)',
+                    border: '1px solid var(--border-light)',
                   }}>
                     <div>
-                      <div style={{ fontWeight: 500 }}>{fuel}</div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>
-                        {info.qty.toFixed(2)} {fuel === 'CNG' ? 'kg' : 'L'} x ₹{info.rate}/{fuel === 'CNG' ? 'kg' : 'L'}
+                      <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text-primary)' }}>{fuel}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 2 }}>
+                        {info.qty.toFixed(2)} {fuel === 'CNG' ? 'kg' : 'L'} <span style={{ color: 'var(--text-muted)' }}>@</span> ₹{info.rate}/{fuel === 'CNG' ? 'kg' : 'L'}
                       </div>
                     </div>
-                    <span style={{ fontWeight: 600, color: 'var(--accent)' }}>
-                      ₹{info.amount.toLocaleString('en-IN')}
-                    </span>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 2 }}>Total Amount</div>
+                      <span style={{ fontWeight: 700, color: 'var(--accent)', fontSize: 15 }}>
+                        ₹{info.amount.toLocaleString('en-IN')}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -337,5 +344,13 @@ export default function ReportPage() {
 
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
     </div>
+  );
+}
+
+export default function ReportPage() {
+  return (
+    <Suspense fallback={<div className="page"><div className="loading">Loading...</div></div>}>
+      <ReportContent />
+    </Suspense>
   );
 }

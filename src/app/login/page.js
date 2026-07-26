@@ -59,23 +59,23 @@ export default function LoginPage() {
       background: 'var(--bg-main)',
       padding: '20px'
     }}>
-      
-      <Image 
-        src={logoPic} 
-        alt="Logo" 
-        width={200} 
+
+      <Image
+        src={logoPic}
+        alt="Logo"
+        width={200}
         style={{ height: 'auto', marginBottom: '24px' }}
         priority
       />
       <div className="card" style={{ maxWidth: '400px', width: '100%', padding: '30px' }}>
-        
-        
+
+
         {error && (
-          <div style={{ 
-            background: 'var(--danger)', 
-            color: 'white', 
-            padding: '10px', 
-            borderRadius: '6px', 
+          <div style={{
+            background: 'var(--danger)',
+            color: 'white',
+            padding: '10px',
+            borderRadius: '6px',
             marginBottom: '20px',
             fontSize: '14px',
             textAlign: 'center'
@@ -127,9 +127,9 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
-          <button 
-            type="submit" 
-            className="btn btn-primary btn-block" 
+          <button
+            type="submit"
+            className="btn btn-primary btn-block"
             disabled={loading}
             style={{ marginTop: '20px' }}
           >

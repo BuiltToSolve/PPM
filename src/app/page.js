@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { LogOut } from 'lucide-react';
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
@@ -64,13 +65,14 @@ export default function Dashboard() {
           </span>
           <button 
             className="btn btn-sm btn-outline" 
-            style={{ fontSize: '12px', padding: '4px 10px', color: 'var(--danger)', borderColor: 'var(--danger)' }}
+            title="Logout"
+            style={{ padding: '6px', color: 'var(--danger)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center' }}
             onClick={async () => {
               await fetch('/api/auth/logout', { method: 'POST' });
               window.location.href = '/login';
             }}
           >
-            Logout
+            <LogOut size={18} />
           </button>
         </div>
       </div>
