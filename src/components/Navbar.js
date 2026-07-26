@@ -18,7 +18,7 @@ export default function Navbar() {
     { href: '/operators', label: 'Operators', icon: '👷' },
     { href: '/fuel-rates', label: 'Rates', icon: '💰' },
     { href: '/daily-sales/report', label: 'Daily Report', icon: '📋' },
-    { href: '/monthly-report', label: 'Monthly Report', icon: '📅' },
+    { href: '/monthly-report', label: 'Custom Report', icon: '📅' },
     { href: '/debts', label: 'All Debts', icon: '💳' },
   ];
 
@@ -34,7 +34,7 @@ export default function Navbar() {
 
       <nav className={`sidebar-nav ${isOpen ? '' : 'closed'}`}>
         <div className="sidebar-header">
-          <div className="sidebar-title">Samrat</div>
+          <div className="sidebar-title">Samrat Energy</div>
         </div>
         {navItems.map((item) => (
           <Link

@@ -4,15 +4,16 @@ import { getCollection } from '@/lib/db';
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const month = searchParams.get('month');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
-    if (!month) {
-      return NextResponse.json({ error: 'month is required (YYYY-MM)' }, { status: 400 });
+    if (!startDate || !endDate) {
+      return NextResponse.json({ error: 'startDate and endDate are required (YYYY-MM-DD)' }, { status: 400 });
     }
 
     const collection = await getCollection('dailySales');
     const sales = await collection
-      .find({ date: { $regex: `^${month}` } })
+      .find({ date: { $gte: startDate, $lte: endDate } })
       .sort({ date: 1 })
       .toArray();
 
@@ -90,7 +91,8 @@ export async function GET(request) {
     const dailyStats = Object.values(dailyBreakdown).sort((a, b) => a.date.localeCompare(b.date));
 
     return NextResponse.json({
-      month,
+      startDate,
+      endDate,
       totalEntries: sales.length,
       daysRecorded: dailyStats.length,
       grandTotal: Math.round(grandTotal * 100) / 100,

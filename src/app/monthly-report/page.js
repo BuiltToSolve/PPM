@@ -7,21 +7,24 @@ import Toast from '@/components/Toast';
 
 export default function MonthlyReportPage() {
   const router = useRouter();
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const today = new Date();
+  const todayStr = today.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
-  const [month, setMonth] = useState(currentMonth);
+  const [startDate, setStartDate] = useState(startOfMonth);
+  const [endDate, setEndDate] = useState(todayStr);
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
 
   async function fetchReport() {
-    if (!month) {
-      setToast('Please select a month');
+    if (!startDate || !endDate) {
+      setToast('Please select a valid date range');
       return;
     }
     setLoading(true);
     try {
-      const res = await fetch(`/api/monthly-report?month=${month}`);
+      const res = await fetch(`/api/monthly-report?startDate=${startDate}&endDate=${endDate}`);
       const data = await res.json();
       setReport(data);
     } catch (err) {
@@ -34,20 +37,32 @@ export default function MonthlyReportPage() {
   return (
     <div className="page">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 className="page-title">Monthly Report</h1>
+        <h1 className="page-title">Custom Report</h1>
       </div>
 
       {/* Date Filter */}
       <div className="card">
-        <div className="form-group">
-          <label className="form-label">Month</label>
-          <input
-            className="form-input"
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            max={currentMonth}
-          />
+        <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+            <label className="form-label">Start Date</label>
+            <input
+              className="form-input"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              max={todayStr}
+            />
+          </div>
+          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+            <label className="form-label">End Date</label>
+            <input
+              className="form-input"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              max={todayStr}
+            />
+          </div>
         </div>
         <button
           className="btn btn-primary btn-block"
