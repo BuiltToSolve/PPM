@@ -156,7 +156,7 @@ function ReportContent() {
                 <div className="stat-value" style={{ fontSize: 18, color: 'var(--success)' }}>
                   ₹{report.grandExtraIncome.toLocaleString('en-IN')}
                 </div>
-                <div className="stat-label">Total Extra Income</div>
+                <div className="stat-label">Total Extra Received</div>
               </div>
             )}
           </div>
@@ -185,11 +185,11 @@ function ReportContent() {
                       <td>
                         <div style={{ fontWeight: 600 }}>{sale.operatorName}</div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                          Pump {sale.pumpNumber} · {sale.fuelType}
+                          {sale.pumpNumber === 5 ? 'CNG' : `Pump ${sale.pumpNumber}`} · {sale.fuelType}
                         </div>
                         {(sale.extraIncome || 0) > 0 && (
                           <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 2, fontWeight: 500 }}>
-                            + Extra Income: ₹{sale.extraIncome.toLocaleString('en-IN')}
+                            + Extra Received: ₹{sale.extraIncome.toLocaleString('en-IN')}
                           </div>
                         )}
                       </td>
@@ -241,7 +241,7 @@ function ReportContent() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 600, fontSize: 14 }}>{ds.operatorName}</div>
                         <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                          Pump {ds.pumpNumber} · {ds.fuelType} · Sale: ₹{ds.totalAmount?.toLocaleString('en-IN')}
+                          {ds.pumpNumber === 5 ? 'CNG' : `Pump ${ds.pumpNumber}`} · {ds.fuelType} · Sale: ₹{ds.totalAmount?.toLocaleString('en-IN')}
                         </div>
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>

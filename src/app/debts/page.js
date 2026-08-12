@@ -110,7 +110,7 @@ export default function DebtsPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: sale.debtEntries?.length > 0 ? 12 : 0 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 15 }}>
-                    {sale.operatorName} <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>(Pump {sale.pumpNumber})</span>
+                    {sale.operatorName} <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>({sale.pumpNumber === 5 ? 'CNG' : `Pump ${sale.pumpNumber}`})</span>
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
                     {new Date(sale.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}

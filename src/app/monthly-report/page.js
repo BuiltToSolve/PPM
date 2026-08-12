@@ -129,7 +129,7 @@ export default function MonthlyReportPage() {
                 <div className="stat-value" style={{ fontSize: 18, color: 'var(--success)' }}>
                   ₹{report.grandExtraIncome.toLocaleString('en-IN')}
                 </div>
-                <div className="stat-label">Total Extra Income</div>
+                <div className="stat-label">Total Extra Received</div>
               </div>
             )}
           </div>
@@ -164,7 +164,7 @@ export default function MonthlyReportPage() {
                         <div style={{ fontWeight: 600 }}>{new Date(day.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div>
                         {(day.extraIncome || 0) > 0 && (
                           <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 2, fontWeight: 500 }}>
-                            + Extra Income: ₹{day.extraIncome.toLocaleString('en-IN')}
+                            + Extra Received: ₹{day.extraIncome.toLocaleString('en-IN')}
                           </div>
                         )}
                       </td>

@@ -9,8 +9,25 @@ const PUMP_CONFIG = [
   { pumpNumber: 2, name: 'Pump 2', fuelTypes: ['Petrol', 'Diesel'] },
   { pumpNumber: 3, name: 'Pump 3', fuelTypes: ['Petrol', 'Premium Petrol'] },
   { pumpNumber: 4, name: 'Pump 4', fuelTypes: ['Petrol', 'Premium Petrol'] },
-  { pumpNumber: 5, name: 'Pump 5', fuelTypes: ['CNG'] },
+  { pumpNumber: 5, name: 'CNG', fuelTypes: ['CNG'] },
 ];
+
+function parseDigitalAmount(val) {
+  if (typeof val === 'string' && val.includes('-')) {
+    if (val.startsWith('-') && (val.match(/-/g) || []).length === 1) {
+      return parseFloat(val) || 0;
+    }
+    const parts = val.split('-');
+    if (parts.length === 2 && parts[0] !== '' && parts[1] !== '') {
+      const v1 = parseFloat(parts[0]);
+      const v2 = parseFloat(parts[1]);
+      if (!isNaN(v1) && !isNaN(v2)) {
+        return Math.abs(v1 - v2);
+      }
+    }
+  }
+  return parseFloat(val) || 0;
+}
 
 export default function DailySalesPage() {
   const [sales, setSales] = useState([]);
@@ -196,6 +213,36 @@ export default function DailySalesPage() {
     }));
   }
 
+  function handleDigitalChange(e) {
+    const val = e.target.value;
+    if (/[^\d.\-]/.test(val)) {
+      setToast('Invalid format. Use only numbers or "X-Y" format.');
+      return;
+    }
+    updateField('digitalAmount', val);
+  }
+
+  function handleDigitalBlur() {
+    const val = formData.digitalAmount;
+    if (typeof val === 'string' && val.includes('-')) {
+      if (val.startsWith('-') && (val.match(/-/g) || []).length === 1) {
+         return;
+      }
+      const parts = val.split('-');
+      if (parts.length === 2 && parts[0] !== '' && parts[1] !== '') {
+        const v1 = parseFloat(parts[0]);
+        const v2 = parseFloat(parts[1]);
+        if (!isNaN(v1) && !isNaN(v2)) {
+          updateField('digitalAmount', Math.abs(v1 - v2).toString());
+        } else {
+          setToast('Invalid numbers in difference format.');
+        }
+      } else {
+        setToast('Invalid format. Use "X-Y" format for differences.');
+      }
+    }
+  }
+
   // Computed values
   let grandTotalAmount = 0;
   Object.values(formData.fuels || {}).forEach(f => {
@@ -208,7 +255,7 @@ export default function DailySalesPage() {
   grandTotalAmount = Math.round(grandTotalAmount * 100) / 100;
 
   const currentCash = parseFloat(formData.cashAmount) || 0;
-  const currentDigital = parseFloat(formData.digitalAmount) || 0;
+  const currentDigital = parseDigitalAmount(formData.digitalAmount);
   const currentHp = parseFloat(formData.hpAmount) || 0;
   const diffAmount = Math.round((grandTotalAmount - currentCash - currentDigital - currentHp) * 100) / 100;
   const assignedDebt = (formData.debtEntries || []).reduce((sum, entry) => sum + (parseFloat(entry.amount) || 0), 0);
@@ -223,6 +270,7 @@ export default function DailySalesPage() {
 
     const payload = {
       ...formData,
+      digitalAmount: currentDigital,
       date: selectedDate,
       fuels: Object.entries(formData.fuels).map(([fuelType, data]) => ({
         fuelType,
@@ -396,7 +444,7 @@ export default function DailySalesPage() {
           <div key={sale._id} className="sale-card">
             <div className="sale-card-header">
               <div className="sale-card-title">
-                {sale.operatorName} — Pump {sale.pumpNumber}
+                {sale.operatorName} — {sale.pumpNumber === 5 ? 'CNG' : `Pump ${sale.pumpNumber}`}
               </div>
               <div className="list-item-actions">
                 {userRole !== 'manager' && (
@@ -507,7 +555,7 @@ export default function DailySalesPage() {
 
                 {(sale.extraIncome || 0) > 0 && (
                   <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: 'rgba(64, 192, 87, 0.1)', border: '1px solid rgba(64, 192, 87, 0.3)', color: 'var(--success)', fontWeight: 600, fontSize: 13, display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Extra Income</span>
+                    <span>Extra Received</span>
                     <span>₹{sale.extraIncome?.toLocaleString('en-IN')}</span>
                   </div>
                 )}
@@ -554,7 +602,7 @@ export default function DailySalesPage() {
                 <option value="">Select pump</option>
                 {PUMP_CONFIG.map((p) => (
                   <option key={p.pumpNumber} value={p.pumpNumber}>
-                    Pump {p.pumpNumber}
+                    {p.name}
                   </option>
                 ))}
               </select>
@@ -642,10 +690,11 @@ export default function DailySalesPage() {
               <label className="form-label">Digital (₹)</label>
               <input
                 className="form-input"
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={formData.digitalAmount}
-                onChange={(e) => updateField('digitalAmount', e.target.value)}
+                onChange={handleDigitalChange}
+                onBlur={handleDigitalBlur}
                 placeholder="0.00"
               />
             </div>
@@ -665,14 +714,16 @@ export default function DailySalesPage() {
           {/* Over/Under Collection */}
           {diffAmount < 0 && (
             <div style={{ marginTop: 12, padding: 12, backgroundColor: 'rgba(var(--success-rgb), 0.1)', borderRadius: 6, border: '1px solid var(--success)' }}>
-              <div style={{ color: 'var(--success)', fontWeight: 600 }}>Extra Income: ₹{Math.abs(diffAmount).toLocaleString('en-IN')}</div>
+              <div style={{ color: 'var(--success)', fontWeight: 600 }}>Extra Received: ₹{Math.abs(diffAmount).toLocaleString('en-IN')}</div>
             </div>
           )}
 
           {diffAmount > 0 && (
             <div style={{ marginTop: 12, padding: 12, border: '1px solid var(--border)', borderRadius: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ color: 'var(--danger)', fontWeight: 600 }}>Debt Pending: ₹{pendingDebt.toLocaleString('en-IN')}</div>
+                <div style={{ color: pendingDebt < 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
+                  {pendingDebt < 0 ? `Extra Received: ₹${Math.abs(pendingDebt).toLocaleString('en-IN')}` : `Debt Pending: ₹${pendingDebt.toLocaleString('en-IN')}`}
+                </div>
                 <button type="button" className="btn btn-sm btn-outline" onClick={addDebtEntry}>+ Add Debt</button>
               </div>
               {(formData.debtEntries || []).map((entry, idx) => (
