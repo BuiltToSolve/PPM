@@ -26,6 +26,7 @@ export async function GET(request) {
     let grandExtraIncome = 0;
     const fuelBreakdown = {};
     const debtSales = [];
+    const cngSummary = { cash: 0, digital: 0, hp: 0, debt: 0, totalAmount: 0 };
 
     sales.forEach((sale) => {
       grandTotal += sale.totalAmount || 0;
@@ -33,6 +34,14 @@ export async function GET(request) {
       grandDigital += sale.digitalAmount || 0;
       grandHp += sale.hpAmount || 0;
       grandExtraIncome += sale.extraIncome || 0;
+
+      if (sale.pumpNumber === 5) {
+        cngSummary.cash += sale.cashAmount || 0;
+        cngSummary.digital += sale.digitalAmount || 0;
+        cngSummary.hp += sale.hpAmount || 0;
+        cngSummary.debt += sale.debtAmount || 0;
+        cngSummary.totalAmount += sale.totalAmount || 0;
+      }
 
       if (sale.fuels && Array.isArray(sale.fuels)) {
         sale.fuels.forEach((fuel) => {
@@ -89,6 +98,7 @@ export async function GET(request) {
       grandDebt: Math.round(grandDebt * 100) / 100,
       grandUnsettledDebt: Math.round(grandUnsettledDebt * 100) / 100,
       grandExtraIncome: Math.round(grandExtraIncome * 100) / 100,
+      cngSummary,
       fuelBreakdown,
       debtSales,
       sales,

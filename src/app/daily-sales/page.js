@@ -9,7 +9,7 @@ const PUMP_CONFIG = [
   { pumpNumber: 2, name: 'Pump 2', fuelTypes: ['Petrol', 'Diesel'] },
   { pumpNumber: 3, name: 'Pump 3', fuelTypes: ['Petrol', 'Premium Petrol'] },
   { pumpNumber: 4, name: 'Pump 4', fuelTypes: ['Petrol', 'Premium Petrol'] },
-  { pumpNumber: 5, name: 'CNG', fuelTypes: ['CNG'] },
+  { pumpNumber: 5, name: 'CNG', fuelTypes: ['CNG - Side A', 'CNG - Side B'] },
 ];
 
 function parseDigitalAmount(val) {
@@ -163,16 +163,16 @@ export default function DailySalesPage() {
         updated.operatorName = op ? op.name : '';
       }
 
-      // Auto-select fuel type when pump changes
       if (field === 'pumpNumber') {
         const fuels = getAvailableFuels(value);
         updated.fuels = {};
         fuels.forEach(f => {
+          const baseFuelType = f.startsWith('CNG') ? 'CNG' : f;
           updated.fuels[f] = {
             openingReading: '',
             closingReading: '',
             testingQty: '',
-            rate: fuelRates[f]?.toString() || ''
+            rate: (fuelRates[f] || fuelRates[baseFuelType])?.toString() || ''
           };
         });
       }

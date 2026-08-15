@@ -134,6 +134,45 @@ export default function MonthlyReportPage() {
             )}
           </div>
 
+          {/* CNG Payments Summary */}
+          {report.cngSummary && report.cngSummary.totalAmount > 0 && (
+            <>
+              <div className="section-title">CNG Payments Summary</div>
+              <div className="stats-grid" style={{ marginBottom: 24 }}>
+                <div className="stat-card accent full-width">
+                  <div className="stat-value">₹{report.cngSummary.totalAmount.toLocaleString('en-IN')}</div>
+                  <div className="stat-label">Total CNG Sales</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-value" style={{ fontSize: 18, color: 'var(--success)' }}>
+                    ₹{report.cngSummary.cash.toLocaleString('en-IN')}
+                  </div>
+                  <div className="stat-label">Cash</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-value" style={{ fontSize: 18, color: 'var(--accent)' }}>
+                    ₹{report.cngSummary.digital.toLocaleString('en-IN')}
+                  </div>
+                  <div className="stat-label">Digital</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-value" style={{ fontSize: 18, color: 'var(--accent-alt, #007aff)' }}>
+                    ₹{report.cngSummary.hp.toLocaleString('en-IN')}
+                  </div>
+                  <div className="stat-label">HP</div>
+                </div>
+                {report.cngSummary.debt > 0 && (
+                  <div className="stat-card">
+                    <div className="stat-value" style={{ fontSize: 18, color: 'var(--danger)' }}>
+                      ₹{report.cngSummary.debt.toLocaleString('en-IN')}
+                    </div>
+                    <div className="stat-label">Total Debt</div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
           {/* Daily Breakdown -> Sale Entries */}
           <div className="section-title">Daily Breakdown</div>
 
@@ -229,7 +268,7 @@ export default function MonthlyReportPage() {
                     <div>
                       <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text-primary)' }}>{fuel}</div>
                       <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 2 }}>
-                        {info.qty.toFixed(2)} {fuel === 'CNG' ? 'kg' : 'L'}
+                        {info.qty.toFixed(2)} {fuel.startsWith('CNG') ? 'kg' : 'L'}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
