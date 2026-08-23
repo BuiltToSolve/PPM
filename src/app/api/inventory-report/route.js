@@ -4,29 +4,28 @@ import { getCollection } from '@/lib/db';
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const date = searchParams.get('date');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
 
-    if (!date) {
-      return NextResponse.json({ error: 'date is required' }, { status: 400 });
+    if (!startDate || !endDate) {
+      return NextResponse.json({ error: 'startDate and endDate are required' }, { status: 400 });
     }
 
     const collection = await getCollection('dailySales');
     const sales = await collection
-      .find({ date, saleType: { $ne: 'inventory' } })
-      .sort({ createdAt: 1 })
+      .find({ date: { $gte: startDate, $lte: endDate }, saleType: 'inventory' })
+      .sort({ date: 1, createdAt: 1 })
       .toArray();
 
     let grandTotal = 0;
     let grandCash = 0;
     let grandDigital = 0;
     let grandHp = 0;
-    let grandQty = 0;
     let grandDebt = 0;
     let grandUnsettledDebt = 0;
     let grandExtraIncome = 0;
-    const fuelBreakdown = {};
+    const itemBreakdown = {};
     const debtSales = [];
-    const cngSummary = { cash: 0, digital: 0, hp: 0, debt: 0, totalAmount: 0 };
 
     sales.forEach((sale) => {
       grandTotal += sale.totalAmount || 0;
@@ -35,33 +34,15 @@ export async function GET(request) {
       grandHp += sale.hpAmount || 0;
       grandExtraIncome += sale.extraIncome || 0;
 
-      if (sale.pumpNumber === 5) {
-        cngSummary.cash += sale.cashAmount || 0;
-        cngSummary.digital += sale.digitalAmount || 0;
-        cngSummary.hp += sale.hpAmount || 0;
-        cngSummary.debt += sale.debtAmount || 0;
-        cngSummary.totalAmount += sale.totalAmount || 0;
-      }
-
-      if (sale.fuels && Array.isArray(sale.fuels)) {
-        sale.fuels.forEach((fuel) => {
-          grandQty += fuel.saleQty || 0;
-          if (!fuelBreakdown[fuel.fuelType]) {
-            fuelBreakdown[fuel.fuelType] = { qty: 0, amount: 0, rate: fuel.rate || 0 };
+      if (sale.items && Array.isArray(sale.items)) {
+        sale.items.forEach((item) => {
+          if (!itemBreakdown[item.name]) {
+            itemBreakdown[item.name] = { qty: 0, amount: 0, rate: item.rate || 0 };
           }
-          fuelBreakdown[fuel.fuelType].qty += fuel.saleQty || 0;
-          fuelBreakdown[fuel.fuelType].amount += fuel.totalAmount || 0;
-          fuelBreakdown[fuel.fuelType].rate = fuel.rate || fuelBreakdown[fuel.fuelType].rate;
+          itemBreakdown[item.name].qty += item.quantity || 0;
+          itemBreakdown[item.name].amount += item.totalAmount || 0;
+          itemBreakdown[item.name].rate = item.rate || itemBreakdown[item.name].rate;
         });
-      } else if (sale.fuelType) {
-        // Fallback for non-migrated
-        grandQty += sale.saleQty || 0;
-        if (!fuelBreakdown[sale.fuelType]) {
-          fuelBreakdown[sale.fuelType] = { qty: 0, amount: 0, rate: sale.rate || 0 };
-        }
-        fuelBreakdown[sale.fuelType].qty += sale.saleQty || 0;
-        fuelBreakdown[sale.fuelType].amount += sale.totalAmount || 0;
-        fuelBreakdown[sale.fuelType].rate = sale.rate || fuelBreakdown[sale.fuelType].rate;
       }
 
       const saleDebt = sale.debtAmount || 0;
@@ -70,8 +51,7 @@ export async function GET(request) {
         debtSales.push({
           _id: sale._id,
           operatorName: sale.operatorName,
-          pumpNumber: sale.pumpNumber,
-          fuelType: sale.fuels ? sale.fuels.map(f => f.fuelType).join(', ') : sale.fuelType,
+          itemsStr: sale.items ? sale.items.map(i => i.name).join(', ') : 'Items',
           totalAmount: sale.totalAmount,
           debtAmount: saleDebt,
           debtSettled: sale.debtSettled || false,
@@ -88,18 +68,17 @@ export async function GET(request) {
     });
 
     return NextResponse.json({
-      date,
+      startDate,
+      endDate,
       totalEntries: sales.length,
       grandTotal: Math.round(grandTotal * 100) / 100,
       grandCash: Math.round(grandCash * 100) / 100,
       grandDigital: Math.round(grandDigital * 100) / 100,
       grandHp: Math.round(grandHp * 100) / 100,
-      grandQty: Math.round(grandQty * 100) / 100,
       grandDebt: Math.round(grandDebt * 100) / 100,
       grandUnsettledDebt: Math.round(grandUnsettledDebt * 100) / 100,
       grandExtraIncome: Math.round(grandExtraIncome * 100) / 100,
-      cngSummary,
-      fuelBreakdown,
+      itemBreakdown,
       debtSales,
       sales,
     });

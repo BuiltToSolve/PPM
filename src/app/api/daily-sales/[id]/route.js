@@ -62,36 +62,87 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Debt entry not found' }, { status: 404 });
     }
 
-    // Recalculate if readings changed
-    if (body.fuels !== undefined) {
+    // Recalculate if readings or items changed
+    if (body.fuels !== undefined || body.items !== undefined) {
       let grandTotalAmount = 0;
+      const existingSale = await collection.findOne({ _id: new ObjectId(id) });
+      const saleType = existingSale ? existingSale.saleType || 'fuel' : 'fuel';
       
-      const processedFuels = body.fuels.map(f => {
-        const opening = parseFloat(f.openingReading) || 0;
-        const closing = parseFloat(f.closingReading) || 0;
-        const testing = parseFloat(f.testingQty) || 0;
-        const fuelRate = parseFloat(f.rate) || 0;
+      if (saleType === 'fuel' && body.fuels !== undefined) {
+        const processedFuels = body.fuels.map(f => {
+          const opening = parseFloat(f.openingReading) || 0;
+          const closing = parseFloat(f.closingReading) || 0;
+          const testing = parseFloat(f.testingQty) || 0;
+          const fuelRate = parseFloat(f.rate) || 0;
 
-        const totalQty = closing - opening;
-        const saleQty = totalQty - testing;
-        const totalAmount = saleQty * fuelRate;
-        const roundedTotal = Math.round(totalAmount * 100) / 100;
+          const totalQty = closing - opening;
+          const saleQty = totalQty - testing;
+          const totalAmount = saleQty * fuelRate;
+          const roundedTotal = Math.round(totalAmount * 100) / 100;
+          
+          grandTotalAmount += roundedTotal;
+
+          return {
+            fuelType: f.fuelType,
+            openingReading: opening,
+            closingReading: closing,
+            totalQty,
+            testingQty: testing,
+            saleQty,
+            rate: fuelRate,
+            totalAmount: roundedTotal,
+          };
+        });
+        updateData.fuels = processedFuels;
+      } else if (saleType === 'inventory' && body.items !== undefined) {
+        const inventoryCollection = await getCollection('inventory');
         
-        grandTotalAmount += roundedTotal;
+        // Restore previous stock
+        if (existingSale.items) {
+          for (const item of existingSale.items) {
+            if (item.inventoryId) {
+              await inventoryCollection.updateOne(
+                { _id: new ObjectId(item.inventoryId) },
+                { $inc: { stock: item.quantity } }
+              );
+            }
+          }
+        }
 
-        return {
-          fuelType: f.fuelType,
-          openingReading: opening,
-          closingReading: closing,
-          totalQty,
-          testingQty: testing,
-          saleQty,
-          rate: fuelRate,
-          totalAmount: roundedTotal,
-        };
-      });
+        const processedItems = [];
+        for (const item of body.items) {
+          const qty = parseFloat(item.quantity) || 0;
+          const rate = parseFloat(item.rate) || 0;
+          const totalAmount = qty * rate;
+          const roundedTotal = Math.round(totalAmount * 100) / 100;
+          
+          grandTotalAmount += roundedTotal;
 
-      updateData.fuels = processedFuels;
+          processedItems.push({
+            inventoryId: item.inventoryId,
+            name: item.name,
+            quantity: qty,
+            rate,
+            totalAmount: roundedTotal
+          });
+
+          // Deduct new stock
+          if (item.inventoryId) {
+            await inventoryCollection.updateOne(
+              { _id: new ObjectId(item.inventoryId) },
+              { $inc: { stock: -qty } }
+            );
+          }
+        }
+        updateData.items = processedItems;
+      } else if (saleType === 'fuel') {
+        // Did not update fuels but updating payment for fuel sale
+        grandTotalAmount = existingSale.totalAmount;
+      } else if (saleType === 'inventory') {
+        // Did not update items but updating payment for inventory sale
+        grandTotalAmount = existingSale.totalAmount;
+      }
+
       updateData.totalAmount = Math.round(grandTotalAmount * 100) / 100;
       updateData.cashAmount = parseFloat(body.cashAmount) || 0;
       updateData.digitalAmount = parseFloat(body.digitalAmount) || 0;
@@ -121,7 +172,7 @@ export async function PUT(request, { params }) {
         const remainingDebt = Math.round((debtAmount - sumOfDebts) * 100) / 100;
         if (remainingDebt > 0) {
           finalDebtEntries.push({
-            clientName: updateData.operatorName || body.operatorName,
+            clientName: updateData.operatorName || body.operatorName || existingSale.operatorName,
             amount: remainingDebt,
             settled: false
           });
@@ -162,10 +213,23 @@ export async function DELETE(request, { params }) {
     const { id } = await params;
     const collection = await getCollection('dailySales');
 
+    const sale = await collection.findOne({ _id: new ObjectId(id) });
+    if (!sale) {
+      return NextResponse.json({ error: 'Sale entry not found' }, { status: 404 });
+    }
+
     const result = await collection.deleteOne({ _id: new ObjectId(id) });
 
-    if (result.deletedCount === 0) {
-      return NextResponse.json({ error: 'Sale entry not found' }, { status: 404 });
+    if (result.deletedCount > 0 && sale.saleType === 'inventory' && sale.items) {
+      const inventoryCollection = await getCollection('inventory');
+      for (const item of sale.items) {
+        if (item.inventoryId) {
+          await inventoryCollection.updateOne(
+            { _id: new ObjectId(item.inventoryId) },
+            { $inc: { stock: item.quantity } }
+          );
+        }
+      }
     }
 
     return NextResponse.json({ success: true });

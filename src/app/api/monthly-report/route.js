@@ -13,7 +13,7 @@ export async function GET(request) {
 
     const collection = await getCollection('dailySales');
     const sales = await collection
-      .find({ date: { $gte: startDate, $lte: endDate } })
+      .find({ date: { $gte: startDate, $lte: endDate }, saleType: { $ne: 'inventory' } })
       .sort({ date: 1 })
       .toArray();
 

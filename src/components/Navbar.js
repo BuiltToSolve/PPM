@@ -20,6 +20,8 @@ export default function Navbar() {
     { href: '/daily-sales/report', label: 'Daily Report', icon: '📋' },
     { href: '/monthly-report', label: 'Custom Report', icon: '📅' },
     { href: '/debts', label: 'All Debts', icon: '💳' },
+    { href: '/inventory', label: 'Inventory', icon: '📦' },
+    { href: '/inventory/report', label: 'Inventory Report', icon: '📋' },
   ];
 
   return (

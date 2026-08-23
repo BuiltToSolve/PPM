@@ -33,6 +33,7 @@ export default function DailySalesPage() {
   const [sales, setSales] = useState([]);
   const [operators, setOperators] = useState([]);
   const [fuelRates, setFuelRates] = useState({});
+  const [inventoryList, setInventoryList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingSale, setEditingSale] = useState(null);
@@ -44,10 +45,12 @@ export default function DailySalesPage() {
 
   // Form state
   const [formData, setFormData] = useState({
+    saleType: 'fuel', // 'fuel' or 'inventory'
     operatorId: '',
     operatorName: '',
     pumpNumber: '',
     fuels: {},
+    items: [], // { inventoryId, name, quantity, rate }
     cashAmount: '',
     digitalAmount: '',
     hpAmount: '',
@@ -56,20 +59,23 @@ export default function DailySalesPage() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [salesRes, opsRes, ratesRes, authRes] = await Promise.all([
+      const [salesRes, opsRes, ratesRes, authRes, invRes] = await Promise.all([
         fetch(`/api/daily-sales?date=${selectedDate}`),
         fetch('/api/operators'),
         fetch('/api/fuel-rates'),
         fetch('/api/auth/me'),
+        fetch('/api/inventory'),
       ]);
       const salesData = await salesRes.json();
       const opsData = await opsRes.json();
       const ratesData = await ratesRes.json();
       const authData = await authRes.json();
+      const invData = await invRes.json();
 
       setSales(salesData);
       setOperators(opsData.filter((o) => o.active));
       setUserRole(authData.role);
+      setInventoryList(invData);
 
       // Build rate lookup
       const rateMap = {};
@@ -102,10 +108,12 @@ export default function DailySalesPage() {
 
   function resetForm() {
     setFormData({
+      saleType: 'fuel',
       operatorId: '',
       operatorName: '',
       pumpNumber: '',
       fuels: {},
+      items: [],
       cashAmount: '',
       digitalAmount: '',
       hpAmount: '',
@@ -121,30 +129,43 @@ export default function DailySalesPage() {
 
   function openEdit(sale) {
     setEditingSale(sale);
-    const fuelsObj = {};
-    if (sale.fuels) {
-      sale.fuels.forEach(f => {
-        fuelsObj[f.fuelType] = {
-          openingReading: f.openingReading.toString(),
-          closingReading: f.closingReading.toString(),
-          testingQty: f.testingQty?.toString() || '0',
-          rate: f.rate.toString()
+    const saleType = sale.saleType || 'fuel';
+    
+    let fuelsObj = {};
+    if (saleType === 'fuel') {
+      if (sale.fuels) {
+        sale.fuels.forEach(f => {
+          fuelsObj[f.fuelType] = {
+            openingReading: f.openingReading.toString(),
+            closingReading: f.closingReading.toString(),
+            testingQty: f.testingQty?.toString() || '0',
+            rate: f.rate.toString()
+          };
+        });
+      } else if (sale.fuelType) {
+        fuelsObj[sale.fuelType] = {
+          openingReading: sale.openingReading.toString(),
+          closingReading: sale.closingReading.toString(),
+          testingQty: sale.testingQty?.toString() || '0',
+          rate: sale.rate.toString()
         };
-      });
-    } else if (sale.fuelType) {
-      fuelsObj[sale.fuelType] = {
-        openingReading: sale.openingReading.toString(),
-        closingReading: sale.closingReading.toString(),
-        testingQty: sale.testingQty?.toString() || '0',
-        rate: sale.rate.toString()
-      };
+      }
     }
 
+    const itemsArr = sale.items ? sale.items.map(item => ({
+      inventoryId: item.inventoryId,
+      name: item.name,
+      quantity: item.quantity.toString(),
+      rate: item.rate.toString(),
+    })) : [];
+
     setFormData({
+      saleType: saleType,
       operatorId: sale.operatorId,
       operatorName: sale.operatorName,
-      pumpNumber: sale.pumpNumber.toString(),
+      pumpNumber: sale.pumpNumber ? sale.pumpNumber.toString() : '',
       fuels: fuelsObj,
+      items: itemsArr,
       cashAmount: sale.cashAmount.toString(),
       digitalAmount: sale.digitalAmount.toString(),
       hpAmount: sale.hpAmount?.toString() || '',
@@ -163,7 +184,7 @@ export default function DailySalesPage() {
         updated.operatorName = op ? op.name : '';
       }
 
-      if (field === 'pumpNumber') {
+      if (field === 'pumpNumber' && prev.saleType === 'fuel') {
         const fuels = getAvailableFuels(value);
         updated.fuels = {};
         fuels.forEach(f => {
@@ -243,15 +264,53 @@ export default function DailySalesPage() {
     }
   }
 
+  // Inventory logic
+  function addInventoryItem() {
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, { inventoryId: '', name: '', quantity: '', rate: '' }]
+    }));
+  }
+
+  function removeInventoryItem(index) {
+    const newItems = [...formData.items];
+    newItems.splice(index, 1);
+    updateField('items', newItems);
+  }
+
+  function updateInventoryItem(index, field, value) {
+    const newItems = [...formData.items];
+    newItems[index] = { ...newItems[index], [field]: value };
+    
+    // Auto-fill rate when item is selected
+    if (field === 'inventoryId') {
+      const selectedInv = inventoryList.find(i => i._id === value);
+      if (selectedInv) {
+        newItems[index].name = selectedInv.name;
+        newItems[index].rate = selectedInv.price.toString();
+      }
+    }
+    
+    updateField('items', newItems);
+  }
+
   // Computed values
   let grandTotalAmount = 0;
-  Object.values(formData.fuels || {}).forEach(f => {
-    const o = parseFloat(f.openingReading) || 0;
-    const c = parseFloat(f.closingReading) || 0;
-    const t = parseFloat(f.testingQty) || 0;
-    const r = parseFloat(f.rate) || 0;
-    grandTotalAmount += ((c - o) - t) * r;
-  });
+  if (formData.saleType === 'fuel') {
+    Object.values(formData.fuels || {}).forEach(f => {
+      const o = parseFloat(f.openingReading) || 0;
+      const c = parseFloat(f.closingReading) || 0;
+      const t = parseFloat(f.testingQty) || 0;
+      const r = parseFloat(f.rate) || 0;
+      grandTotalAmount += ((c - o) - t) * r;
+    });
+  } else if (formData.saleType === 'inventory') {
+    (formData.items || []).forEach(item => {
+      const q = parseFloat(item.quantity) || 0;
+      const r = parseFloat(item.rate) || 0;
+      grandTotalAmount += q * r;
+    });
+  }
   grandTotalAmount = Math.round(grandTotalAmount * 100) / 100;
 
   const currentCash = parseFloat(formData.cashAmount) || 0;
@@ -263,8 +322,16 @@ export default function DailySalesPage() {
 
   async function handleSave(e) {
     e.preventDefault();
-    if (!formData.operatorId || !formData.pumpNumber) {
-      setToast('Please fill all required fields');
+    if (!formData.operatorId) {
+      setToast('Please select an operator');
+      return;
+    }
+    if (formData.saleType === 'fuel' && !formData.pumpNumber) {
+      setToast('Please select a pump');
+      return;
+    }
+    if (formData.saleType === 'inventory' && (!formData.items || formData.items.length === 0)) {
+      setToast('Please add at least one inventory item');
       return;
     }
 
@@ -272,11 +339,14 @@ export default function DailySalesPage() {
       ...formData,
       digitalAmount: currentDigital,
       date: selectedDate,
-      fuels: Object.entries(formData.fuels).map(([fuelType, data]) => ({
+    };
+    
+    if (formData.saleType === 'fuel') {
+      payload.fuels = Object.entries(formData.fuels).map(([fuelType, data]) => ({
         fuelType,
         ...data
-      }))
-    };
+      }));
+    }
 
     try {
       if (editingSale) {
@@ -444,7 +514,7 @@ export default function DailySalesPage() {
           <div key={sale._id} className="sale-card">
             <div className="sale-card-header">
               <div className="sale-card-title">
-                {sale.operatorName} — {sale.pumpNumber === 5 ? 'CNG' : `Pump ${sale.pumpNumber}`}
+                {sale.operatorName} — {sale.saleType === 'inventory' ? '📦 Inventory' : (sale.pumpNumber === 5 ? 'CNG' : `Pump ${sale.pumpNumber}`)}
               </div>
               <div className="list-item-actions">
                 {userRole !== 'manager' && (
@@ -455,7 +525,9 @@ export default function DailySalesPage() {
                 )}
               </div>
             </div>
-            {(sale.fuels || [sale]).map((f, idx) => (
+            
+            {/* Fuel Rows */}
+            {sale.saleType !== 'inventory' && (sale.fuels || [sale]).map((f, idx) => (
               <div key={idx} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border-light)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>{f.fuelType || sale.fuelType}</div>
@@ -484,6 +556,25 @@ export default function DailySalesPage() {
                 </div>
               </div>
             ))}
+            
+            {/* Inventory Item Rows */}
+            {sale.saleType === 'inventory' && (sale.items || []).map((item, idx) => (
+               <div key={idx} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border-light)' }}>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>{item.name}</div>
+                   <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Rate: <strong style={{ color: 'var(--text-primary)' }}>₹{item.rate}</strong></div>
+                 </div>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}>
+                   <span style={{ color: 'var(--text-secondary)' }}>Quantity</span>
+                   <span style={{ fontWeight: 600 }}>{item.quantity} units</span>
+                 </div>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '1px dashed var(--border)', fontSize: 14 }}>
+                    <span style={{ fontWeight: 600 }}>Item Total</span>
+                    <strong style={{ color: 'var(--accent)' }}>₹{item.totalAmount?.toLocaleString('en-IN')}</strong>
+                  </div>
+               </div>
+            ))}
+
             <div className="sale-card-total" style={{ borderTop: 'none', paddingTop: 0, marginTop: 0 }}>
               <div style={{ width: '100%' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -573,6 +664,31 @@ export default function DailySalesPage() {
         disableOutsideClick={true}
       >
         <form onSubmit={handleSave}>
+          
+          {/* Sale Type Selector (Only on Add) */}
+          {!editingSale && (
+            <div className="form-group" style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button 
+                  type="button" 
+                  className={`btn btn-sm ${formData.saleType === 'fuel' ? 'btn-primary' : 'btn-outline'}`}
+                  style={{ flex: 1 }}
+                  onClick={() => updateField('saleType', 'fuel')}
+                >
+                  ⛽ Fuel Sale
+                </button>
+                <button 
+                  type="button" 
+                  className={`btn btn-sm ${formData.saleType === 'inventory' ? 'btn-primary' : 'btn-outline'}`}
+                  style={{ flex: 1 }}
+                  onClick={() => updateField('saleType', 'inventory')}
+                >
+                  📦 Inventory Sale
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Operator */}
           <div className="form-group">
             <label className="form-label">Operator *</label>
@@ -589,81 +705,147 @@ export default function DailySalesPage() {
             </select>
           </div>
 
-          {/* Pump & Fuel */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Pump *</label>
-              <select
-                className="form-input"
-                value={formData.pumpNumber}
-                onChange={(e) => updateField('pumpNumber', e.target.value)}
-                required
-              >
-                <option value="">Select pump</option>
-                {PUMP_CONFIG.map((p) => (
-                  <option key={p.pumpNumber} value={p.pumpNumber}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+          {/* Pump & Fuel - ONLY for Fuel Sales */}
+          {formData.saleType === 'fuel' && (
+            <>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Pump *</label>
+                  <select
+                    className="form-input"
+                    value={formData.pumpNumber}
+                    onChange={(e) => updateField('pumpNumber', e.target.value)}
+                    required
+                  >
+                    <option value="">Select pump</option>
+                    {PUMP_CONFIG.map((p) => (
+                      <option key={p.pumpNumber} value={p.pumpNumber}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-          {/* Fuel Rows */}
-          {Object.entries(formData.fuels || {}).map(([fuelType, fuelData]) => (
-            <div key={fuelType} style={{ padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', marginBottom: '16px' }}>
-              <div style={{ fontWeight: 600, marginBottom: '8px' }}>{fuelType}</div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Opening</label>
-                  <input
-                    className="form-input"
-                    type="number"
-                    step="0.01"
-                    value={fuelData.openingReading}
-                    onChange={(e) => updateFuelField(fuelType, 'openingReading', e.target.value)}
-                    placeholder="0.00"
-                  />
+              {/* Fuel Rows */}
+              {Object.entries(formData.fuels || {}).map(([fuelType, fuelData]) => (
+                <div key={fuelType} style={{ padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', marginBottom: '16px' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '8px' }}>{fuelType}</div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Opening</label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        step="0.01"
+                        value={fuelData.openingReading}
+                        onChange={(e) => updateFuelField(fuelType, 'openingReading', e.target.value)}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Closing</label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        step="0.01"
+                        value={fuelData.closingReading}
+                        onChange={(e) => updateFuelField(fuelType, 'closingReading', e.target.value)}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Testing Qty</label>
+                      <input
+                        className="form-input"
+                        type="number"
+                        step="0.01"
+                        value={fuelData.testingQty}
+                        onChange={(e) => updateFuelField(fuelType, 'testingQty', e.target.value)}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Rate (₹)</label>
+                      <input
+                        className="form-input"
+                        disabled={true}
+                        type="number"
+                        step="0.01"
+                        value={fuelData.rate}
+                        onChange={(e) => updateFuelField(fuelType, 'rate', e.target.value)}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Closing</label>
-                  <input
-                    className="form-input"
-                    type="number"
-                    step="0.01"
-                    value={fuelData.closingReading}
-                    onChange={(e) => updateFuelField(fuelType, 'closingReading', e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
+              ))}
+            </>
+          )}
+
+          {/* Inventory Items - ONLY for Inventory Sales */}
+          {formData.saleType === 'inventory' && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <label className="form-label" style={{ marginBottom: 0 }}>Items *</label>
+                <button type="button" className="btn btn-sm btn-outline" onClick={addInventoryItem}>+ Add Item</button>
               </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Testing Qty</label>
-                  <input
-                    className="form-input"
-                    type="number"
-                    step="0.01"
-                    value={fuelData.testingQty}
-                    onChange={(e) => updateFuelField(fuelType, 'testingQty', e.target.value)}
-                    placeholder="0.00"
-                  />
+              
+              {formData.items.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: '6px' }}>
+                  No items added yet.
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Rate (₹)</label>
-                  <input
-                    className="form-input"
-                    disabled={true}
-                    type="number"
-                    step="0.01"
-                    value={fuelData.rate}
-                    onChange={(e) => updateFuelField(fuelType, 'rate', e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
+              ) : (
+                formData.items.map((item, idx) => (
+                  <div key={idx} style={{ padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', marginBottom: '12px' }}>
+                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <select
+                          className="form-input"
+                          value={item.inventoryId}
+                          onChange={(e) => updateInventoryItem(idx, 'inventoryId', e.target.value)}
+                          required
+                        >
+                          <option value="">Select Item</option>
+                          {inventoryList.map(inv => (
+                            <option key={inv._id} value={inv._id}>{inv.name} (Stock: {inv.stock})</option>
+                          ))}
+                        </select>
+                      </div>
+                      <button type="button" className="btn-icon danger" onClick={() => removeInventoryItem(idx)}>🗑️</button>
+                     </div>
+                     <div className="form-row">
+                       <div className="form-group">
+                         <label className="form-label">Quantity</label>
+                         <input
+                           className="form-input"
+                           type="number"
+                           step="0.01"
+                           value={item.quantity}
+                           onChange={(e) => updateInventoryItem(idx, 'quantity', e.target.value)}
+                           required
+                           placeholder="0"
+                         />
+                       </div>
+                       <div className="form-group">
+                         <label className="form-label">Rate (₹)</label>
+                         <input
+                           className="form-input"
+                           disabled={true}
+                           type="number"
+                           step="0.01"
+                           value={item.rate}
+                           placeholder="0.00"
+                         />
+                       </div>
+                     </div>
+                  </div>
+                ))
+              )}
             </div>
-          ))}
+          )}
 
           {/* Computed Values */}
           <div className="form-row" style={{ marginBottom: 14 }}>
