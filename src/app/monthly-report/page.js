@@ -132,6 +132,14 @@ export default function MonthlyReportPage() {
                 <div className="stat-label">Total Extra Received</div>
               </div>
             )}
+            {report.grandExpenses > 0 && (
+              <div className="stat-card full-width">
+                <div className="stat-value" style={{ fontSize: 18, color: 'var(--danger)' }}>
+                  ₹{report.grandExpenses.toLocaleString('en-IN')}
+                </div>
+                <div className="stat-label">Total Shift Expenses</div>
+              </div>
+            )}
           </div>
 
           {/* CNG Payments Summary */}
@@ -204,6 +212,11 @@ export default function MonthlyReportPage() {
                         {(day.extraIncome || 0) > 0 && (
                           <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 2, fontWeight: 500 }}>
                             + Extra Received: ₹{day.extraIncome.toLocaleString('en-IN')}
+                          </div>
+                        )}
+                        {(day.expensesTotal || 0) > 0 && (
+                          <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 2, fontWeight: 500 }}>
+                            - Expenses: ₹{day.expensesTotal.toLocaleString('en-IN')}
                           </div>
                         )}
                       </td>

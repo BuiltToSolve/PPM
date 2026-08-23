@@ -24,6 +24,7 @@ export async function GET(request) {
     let grandDebt = 0;
     let grandUnsettledDebt = 0;
     let grandExtraIncome = 0;
+    let grandExpenses = 0;
     const fuelBreakdown = {};
     const debtSales = [];
     const cngSummary = { cash: 0, digital: 0, hp: 0, debt: 0, totalAmount: 0 };
@@ -34,6 +35,7 @@ export async function GET(request) {
       grandDigital += sale.digitalAmount || 0;
       grandHp += sale.hpAmount || 0;
       grandExtraIncome += sale.extraIncome || 0;
+      grandExpenses += sale.expensesTotal || 0;
 
       if (sale.pumpNumber === 5) {
         cngSummary.cash += sale.cashAmount || 0;
@@ -98,6 +100,7 @@ export async function GET(request) {
       grandDebt: Math.round(grandDebt * 100) / 100,
       grandUnsettledDebt: Math.round(grandUnsettledDebt * 100) / 100,
       grandExtraIncome: Math.round(grandExtraIncome * 100) / 100,
+      grandExpenses: Math.round(grandExpenses * 100) / 100,
       cngSummary,
       fuelBreakdown,
       debtSales,

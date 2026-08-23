@@ -118,11 +118,25 @@ export async function POST(request) {
       }
     }
 
+    let expensesTotal = 0;
+    const finalExpenses = [];
+    if (Array.isArray(body.expenses)) {
+      body.expenses.forEach(exp => {
+        const amt = parseFloat(exp.amount) || 0;
+        if (amt > 0 && exp.description) {
+          expensesTotal += amt;
+          finalExpenses.push({ description: exp.description, amount: amt });
+        }
+      });
+    }
+
     const cash = parseFloat(cashAmount) || 0;
     const digital = parseFloat(digitalAmount) || 0;
     const hp = parseFloat(hpAmount) || 0;
     const roundedGrandTotal = Math.round(grandTotalAmount * 100) / 100;
-    const rawDiff = Math.round((roundedGrandTotal - cash - digital - hp) * 100) / 100;
+    
+    const netExpected = roundedGrandTotal - expensesTotal;
+    const rawDiff = Math.round((netExpected - cash - digital - hp) * 100) / 100;
 
     let debtAmount = 0;
     let extraIncome = 0;
@@ -161,6 +175,8 @@ export async function POST(request) {
       operatorId,
       operatorName,
       totalAmount: roundedGrandTotal,
+      expenses: finalExpenses,
+      expensesTotal,
       cashAmount: cash,
       digitalAmount: digital,
       hpAmount: hp,

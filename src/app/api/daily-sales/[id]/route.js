@@ -148,8 +148,24 @@ export async function PUT(request, { params }) {
       updateData.digitalAmount = parseFloat(body.digitalAmount) || 0;
       updateData.hpAmount = parseFloat(body.hpAmount) || 0;
 
+      let expensesTotal = 0;
+      const finalExpenses = [];
+      const expensesSource = body.expenses !== undefined ? body.expenses : (existingSale.expenses || []);
+      if (Array.isArray(expensesSource)) {
+        expensesSource.forEach(exp => {
+          const amt = parseFloat(exp.amount) || 0;
+          if (amt > 0 && exp.description) {
+            expensesTotal += amt;
+            finalExpenses.push({ description: exp.description, amount: amt });
+          }
+        });
+      }
+      updateData.expenses = finalExpenses;
+      updateData.expensesTotal = expensesTotal;
+
       // Recalculate debt
-      const rawDiff = Math.round((updateData.totalAmount - updateData.cashAmount - updateData.digitalAmount - updateData.hpAmount) * 100) / 100;
+      const netExpected = updateData.totalAmount - expensesTotal;
+      const rawDiff = Math.round((netExpected - updateData.cashAmount - updateData.digitalAmount - updateData.hpAmount) * 100) / 100;
       let debtAmount = 0;
       let extraIncome = 0;
       let finalDebtEntries = [];

@@ -54,6 +54,7 @@ export default function DailySalesPage() {
     cashAmount: '',
     digitalAmount: '',
     hpAmount: '',
+    expenses: [],
     debtEntries: [],
   });
 
@@ -117,6 +118,7 @@ export default function DailySalesPage() {
       cashAmount: '',
       digitalAmount: '',
       hpAmount: '',
+      expenses: [],
       debtEntries: [],
     });
   }
@@ -169,6 +171,7 @@ export default function DailySalesPage() {
       cashAmount: sale.cashAmount.toString(),
       digitalAmount: sale.digitalAmount.toString(),
       hpAmount: sale.hpAmount?.toString() || '',
+      expenses: sale.expenses || [],
       debtEntries: sale.debtEntries || [],
     });
     setShowModal(true);
@@ -219,6 +222,25 @@ export default function DailySalesPage() {
     const newEntries = [...(formData.debtEntries || [])];
     newEntries.splice(index, 1);
     setFormData((prev) => ({ ...prev, debtEntries: newEntries }));
+  }
+
+  function updateExpense(index, field, value) {
+    const newExpenses = [...(formData.expenses || [])];
+    newExpenses[index] = { ...newExpenses[index], [field]: value };
+    setFormData((prev) => ({ ...prev, expenses: newExpenses }));
+  }
+
+  function addExpense() {
+    setFormData((prev) => ({
+      ...prev,
+      expenses: [...(prev.expenses || []), { description: '', amount: '' }],
+    }));
+  }
+
+  function removeExpense(index) {
+    const newExpenses = [...(formData.expenses || [])];
+    newExpenses.splice(index, 1);
+    setFormData((prev) => ({ ...prev, expenses: newExpenses }));
   }
 
   function updateFuelField(fuelType, field, value) {
@@ -316,7 +338,8 @@ export default function DailySalesPage() {
   const currentCash = parseFloat(formData.cashAmount) || 0;
   const currentDigital = parseDigitalAmount(formData.digitalAmount);
   const currentHp = parseFloat(formData.hpAmount) || 0;
-  const diffAmount = Math.round((grandTotalAmount - currentCash - currentDigital - currentHp) * 100) / 100;
+  const currentExpenses = (formData.expenses || []).reduce((sum, exp) => sum + (parseFloat(exp.amount) || 0), 0);
+  const diffAmount = Math.round((grandTotalAmount - currentExpenses - currentCash - currentDigital - currentHp) * 100) / 100;
   const assignedDebt = (formData.debtEntries || []).reduce((sum, entry) => sum + (parseFloat(entry.amount) || 0), 0);
   const pendingDebt = Math.round((diffAmount - assignedDebt) * 100) / 100;
 
@@ -574,6 +597,19 @@ export default function DailySalesPage() {
                   </div>
                </div>
             ))}
+
+            {/* Expenses */}
+            {(sale.expenses && sale.expenses.length > 0) && (
+              <div style={{ padding: '8px 12px', background: 'var(--bg-input)', borderRadius: 8, marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8 }}>Expenses Deducted</div>
+                {sale.expenses.map((exp, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 4 }}>
+                    <span>{exp.description}</span>
+                    <strong style={{ color: 'var(--danger)' }}>-₹{exp.amount}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="sale-card-total" style={{ borderTop: 'none', paddingTop: 0, marginTop: 0 }}>
               <div style={{ width: '100%' }}>
@@ -847,11 +883,44 @@ export default function DailySalesPage() {
             </div>
           )}
 
-          {/* Computed Values */}
           <div className="form-row" style={{ marginBottom: 14 }}>
             <div className="form-group">
               <label className="form-label">Total Amount</label>
               <div className="form-computed" style={{ color: 'var(--accent)' }}>₹{grandTotalAmount.toLocaleString('en-IN')}</div>
+            </div>
+          </div>
+
+          {/* Expenses */}
+          <div style={{ marginTop: 12, padding: 12, border: '1px solid var(--border)', borderRadius: 6, marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ fontWeight: 600 }}>Shift Expenses</div>
+              <button type="button" className="btn btn-sm btn-outline" onClick={addExpense}>+ Add Expense</button>
+            </div>
+            {(formData.expenses || []).map((exp, idx) => (
+              <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ flex: 2 }}>
+                  <input
+                    className="form-input"
+                    placeholder="Description (e.g. Tea)"
+                    value={exp.description}
+                    onChange={(e) => updateExpense(idx, 'description', e.target.value)}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <input
+                    className="form-input"
+                    type="number"
+                    step="0.01"
+                    placeholder="Amount"
+                    value={exp.amount}
+                    onChange={(e) => updateExpense(idx, 'amount', e.target.value)}
+                  />
+                </div>
+                <button type="button" className="btn-icon danger" onClick={() => removeExpense(idx)}>🗑️</button>
+              </div>
+            ))}
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+              Deducted from the total expected cash handover.
             </div>
           </div>
 

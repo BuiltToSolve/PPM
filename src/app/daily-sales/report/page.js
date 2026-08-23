@@ -159,6 +159,14 @@ function ReportContent() {
                 <div className="stat-label">Total Extra Received</div>
               </div>
             )}
+            {report.grandExpenses > 0 && (
+              <div className="stat-card full-width">
+                <div className="stat-value" style={{ fontSize: 18, color: 'var(--danger)' }}>
+                  ₹{report.grandExpenses.toLocaleString('en-IN')}
+                </div>
+                <div className="stat-label">Total Shift Expenses</div>
+              </div>
+            )}
           </div>
 
           {/* CNG Payments Summary */}
@@ -229,6 +237,18 @@ function ReportContent() {
                         {(sale.extraIncome || 0) > 0 && (
                           <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 2, fontWeight: 500 }}>
                             + Extra Received: ₹{sale.extraIncome.toLocaleString('en-IN')}
+                          </div>
+                        )}
+                        {(sale.expensesTotal || 0) > 0 && (
+                          <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 2, fontWeight: 500 }}>
+                            - Expenses: ₹{sale.expensesTotal.toLocaleString('en-IN')}
+                            {sale.expenses && sale.expenses.length > 0 && (
+                              <div style={{ paddingLeft: 8, marginTop: 2, color: 'var(--text-muted)' }}>
+                                {sale.expenses.map((e, idx) => (
+                                  <div key={idx}>{e.description}: ₹{e.amount}</div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </td>
