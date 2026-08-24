@@ -110,16 +110,26 @@ export default function MonthlyReportPage() {
                     </div>
                     <div className="stat-label">Total Debt</div>
                   </div>
-                  {report.grandUnsettledDebt > 0 && (
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--warning)' }}>
-                        ₹{report.grandUnsettledDebt.toLocaleString('en-IN')}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--success)' }}>
+                        ₹{(report.grandDebt - report.grandUnsettledDebt).toLocaleString('en-IN')}
                       </div>
-                      <div className="stat-label">Unsettled</div>
+                      <div className="stat-label">Settled</div>
                     </div>
-                  )}
+                    {report.grandUnsettledDebt > 0 && (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--warning)' }}>
+                          ₹{report.grandUnsettledDebt.toLocaleString('en-IN')}
+                        </div>
+                        <div className="stat-label">Unsettled</div>
+                      </div>
+                    )}
+                  </div>
                   {report.grandUnsettledDebt === 0 && report.grandDebt > 0 && (
-                    <span className="badge badge-active" style={{ fontSize: 13, padding: '5px 12px' }}>All Settled ✓</span>
+                    <div style={{ marginTop: 8 }}>
+                      <span className="badge badge-active" style={{ fontSize: 13, padding: '5px 12px' }}>All Settled ✓</span>
+                    </div>
                   )}
                 </div>
               </div>

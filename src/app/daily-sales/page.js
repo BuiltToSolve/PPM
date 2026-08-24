@@ -518,16 +518,26 @@ export default function DailySalesPage() {
                   </div>
                   <div className="stat-label">Total Debt</div>
                 </div>
-                {dayUnsettledDebt > 0 && (
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--warning)' }}>
-                      ₹{dayUnsettledDebt.toLocaleString('en-IN')}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--success)' }}>
+                      ₹{(dayTotalDebt - dayUnsettledDebt).toLocaleString('en-IN')}
                     </div>
-                    <div className="stat-label">Unsettled</div>
+                    <div className="stat-label">Settled</div>
                   </div>
-                )}
+                  {dayUnsettledDebt > 0 && (
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--warning)' }}>
+                        ₹{dayUnsettledDebt.toLocaleString('en-IN')}
+                      </div>
+                      <div className="stat-label">Unsettled</div>
+                    </div>
+                  )}
+                </div>
                 {dayUnsettledDebt === 0 && dayTotalDebt > 0 && (
-                  <span className="badge badge-active" style={{ fontSize: 13, padding: '5px 12px' }}>All Settled ✓</span>
+                  <div style={{ marginTop: 8 }}>
+                    <span className="badge badge-active" style={{ fontSize: 13, padding: '5px 12px' }}>All Settled ✓</span>
+                  </div>
                 )}
               </div>
             </div>
