@@ -405,12 +405,7 @@ export default function DailySalesPage() {
     }
   }
 
-  const dateLabel = new Date(selectedDate).toLocaleDateString('en-IN', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+
 
   // Today's totals
   const dayTotal = sales.reduce((sum, s) => sum + (s.totalAmount || 0), 0);
@@ -472,7 +467,21 @@ export default function DailySalesPage() {
       {/* Date Navigation */}
       <div className="date-nav">
         <button className="date-nav-btn" onClick={() => changeDate(-1)}>◀</button>
-        <div className="date-nav-label">{dateLabel}</div>
+        <input
+          type="date"
+          className="date-nav-label"
+          value={selectedDate}
+          max={todayStr}
+          onChange={(e) => setSelectedDate(e.target.value)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'inherit',
+            fontFamily: 'inherit',
+            outline: 'none',
+            cursor: 'pointer',
+          }}
+        />
         <button
           className="date-nav-btn"
           onClick={() => changeDate(1)}
