@@ -103,32 +103,32 @@ export default function MonthlyReportPage() {
             </div>
             {report.grandDebt > 0 && (
               <div className="stat-card">
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div>
                     <div className="stat-value" style={{ fontSize: 18, color: 'var(--danger)' }}>
                       ₹{report.grandDebt.toLocaleString('en-IN')}
                     </div>
                     <div className="stat-label">Total Debt</div>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                    <div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--success)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid var(--border-light)', paddingTop: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="stat-label" style={{ fontSize: 12 }}>Settled</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--success)' }}>
                         ₹{(report.grandDebt - report.grandUnsettledDebt).toLocaleString('en-IN')}
-                      </div>
-                      <div className="stat-label">Settled</div>
+                      </span>
                     </div>
                     {report.grandUnsettledDebt > 0 && (
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--warning)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span className="stat-label" style={{ fontSize: 12 }}>Unsettled</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--warning)' }}>
                           ₹{report.grandUnsettledDebt.toLocaleString('en-IN')}
-                        </div>
-                        <div className="stat-label">Unsettled</div>
+                        </span>
                       </div>
                     )}
                   </div>
                   {report.grandUnsettledDebt === 0 && report.grandDebt > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                      <span className="badge badge-active" style={{ fontSize: 13, padding: '5px 12px' }}>All Settled ✓</span>
+                    <div style={{ marginTop: 2 }}>
+                      <span className="badge badge-active" style={{ fontSize: 12, padding: '4px 8px' }}>All Settled ✓</span>
                     </div>
                   )}
                 </div>
