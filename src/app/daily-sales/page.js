@@ -460,7 +460,7 @@ export default function DailySalesPage() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1 className="page-title">Daily Sales {`(${selectedDate})`}</h1>
+        <h1 className="page-title">Daily Sales</h1>
         <button className="btn btn-primary btn-sm" onClick={openAdd}>+ Add</button>
       </div>
 
