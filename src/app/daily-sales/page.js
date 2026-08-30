@@ -420,6 +420,8 @@ export default function DailySalesPage() {
     }
     return sum + (s.debtAmount || 0);
   }, 0);
+  const dayTotalExtraIncome = sales.reduce((sum, s) => sum + (s.extraIncome || 0), 0);
+  const dayTotalExpense = sales.reduce((sum, s) => sum + (s.expensesTotal || 0), 0);
 
   async function handleSettle(id) {
     try {
@@ -540,6 +542,18 @@ export default function DailySalesPage() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+          {dayTotalExtraIncome > 0 && (
+            <div className="stat-card" style={{ textAlign: 'center', borderColor: 'var(--success)', background: 'rgba(64,192,87,0.05)' }}>
+              <div className="stat-value" style={{ color: 'var(--success)' }}>₹{dayTotalExtraIncome.toLocaleString('en-IN')}</div>
+              <div className="stat-label">Extra Received</div>
+            </div>
+          )}
+          {dayTotalExpense > 0 && (
+            <div className="stat-card" style={{ textAlign: 'center', borderColor: 'var(--danger)', background: 'rgba(250,82,82,0.05)' }}>
+              <div className="stat-value" style={{ color: 'var(--danger)' }}>₹{dayTotalExpense.toLocaleString('en-IN')}</div>
+              <div className="stat-label">Expenses</div>
             </div>
           )}
         </div>

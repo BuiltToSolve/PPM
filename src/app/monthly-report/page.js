@@ -135,16 +135,16 @@ export default function MonthlyReportPage() {
               </div>
             )}
             {report.grandExtraIncome > 0 && (
-              <div className="stat-card full-width">
-                <div className="stat-value" style={{ fontSize: 18, color: 'var(--success)' }}>
+              <div className="stat-card" style={{ textAlign: 'center', borderColor: 'var(--success)', background: 'rgba(64,192,87,0.05)' }}>
+                <div className="stat-value" style={{ color: 'var(--success)' }}>
                   ₹{report.grandExtraIncome.toLocaleString('en-IN')}
                 </div>
                 <div className="stat-label">Total Extra Received</div>
               </div>
             )}
             {report.grandExpenses > 0 && (
-              <div className="stat-card full-width">
-                <div className="stat-value" style={{ fontSize: 18, color: 'var(--danger)' }}>
+              <div className="stat-card" style={{ textAlign: 'center', borderColor: 'var(--danger)', background: 'rgba(250,82,82,0.05)' }}>
+                <div className="stat-value" style={{ color: 'var(--danger)' }}>
                   ₹{report.grandExpenses.toLocaleString('en-IN')}
                 </div>
                 <div className="stat-label">Total Shift Expenses</div>
