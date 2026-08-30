@@ -75,7 +75,7 @@ export async function POST(request) {
         const saleQty = totalQty - testing;
         const totalAmount = saleQty * fuelRate;
         const roundedTotal = Math.round(totalAmount * 100) / 100;
-        
+
         grandTotalAmount += roundedTotal;
 
         return {
@@ -91,13 +91,13 @@ export async function POST(request) {
       });
     } else if (saleType === 'inventory') {
       const inventoryCollection = await getCollection('inventory');
-      
+
       for (const item of items) {
         const qty = parseFloat(item.quantity) || 0;
         const rate = parseFloat(item.rate) || 0;
         const totalAmount = qty * rate;
         const roundedTotal = Math.round(totalAmount * 100) / 100;
-        
+
         grandTotalAmount += roundedTotal;
 
         processedItems.push({
@@ -134,39 +134,40 @@ export async function POST(request) {
     const digital = parseFloat(digitalAmount) || 0;
     const hp = parseFloat(hpAmount) || 0;
     const roundedGrandTotal = Math.round(grandTotalAmount * 100) / 100;
-    
+
     const netExpected = roundedGrandTotal - expensesTotal;
     const rawDiff = Math.round((netExpected - cash - digital - hp) * 100) / 100;
 
-    let debtAmount = 0;
-    let extraIncome = 0;
-    let finalDebtEntries = [];
+    const inputDebtEntries = Array.isArray(body.debtEntries) ? body.debtEntries : [];
+    let sumOfDebts = 0;
+    const finalDebtEntries = [];
 
-    if (rawDiff > 0) {
-      debtAmount = rawDiff;
-      const inputDebtEntries = Array.isArray(body.debtEntries) ? body.debtEntries : [];
-      let sumOfDebts = 0;
-      inputDebtEntries.forEach(entry => {
-        const amt = parseFloat(entry.amount) || 0;
-        if (amt > 0) {
-          sumOfDebts += amt;
-          finalDebtEntries.push({
-            clientName: entry.clientName || 'Unknown',
-            amount: amt,
-            settled: false
-          });
-        }
-      });
-      const remainingDebt = Math.round((debtAmount - sumOfDebts) * 100) / 100;
-      if (remainingDebt > 0) {
+    inputDebtEntries.forEach(entry => {
+      const amt = parseFloat(entry.amount) || 0;
+      if (amt > 0) {
+        sumOfDebts += amt;
         finalDebtEntries.push({
-          clientName: operatorName,
-          amount: remainingDebt,
+          clientName: entry.clientName || 'Unknown',
+          amount: amt,
           settled: false
         });
       }
-    } else if (rawDiff < 0) {
-      extraIncome = Math.abs(rawDiff);
+    });
+
+    let debtAmount = 0;
+    let extraIncome = 0;
+    const pendingDebt = Math.round((rawDiff - sumOfDebts) * 100) / 100;
+
+    if (pendingDebt > 0) {
+      finalDebtEntries.push({
+        clientName: operatorName,
+        amount: pendingDebt,
+        settled: false
+      });
+      debtAmount = Math.round((sumOfDebts + pendingDebt) * 100) / 100;
+    } else {
+      extraIncome = Math.abs(pendingDebt);
+      debtAmount = sumOfDebts;
     }
 
     const sale = {

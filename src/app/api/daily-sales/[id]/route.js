@@ -45,13 +45,13 @@ export async function PUT(request, { params }) {
     if (body.settleDebtEntryIndex !== undefined && Object.keys(body).length <= 2) {
       const sale = await collection.findOne({ _id: new ObjectId(id) });
       if (!sale) return NextResponse.json({ error: 'Sale not found' }, { status: 404 });
-      
+
       if (sale.debtEntries && sale.debtEntries[body.settleDebtEntryIndex]) {
         sale.debtEntries[body.settleDebtEntryIndex].settled = true;
-        
+
         // Check if all are settled
         const allSettled = sale.debtEntries.every(e => e.settled);
-        
+
         const result = await collection.findOneAndUpdate(
           { _id: new ObjectId(id) },
           { $set: { debtEntries: sale.debtEntries, debtSettled: allSettled, updatedAt: new Date() } },
@@ -67,7 +67,7 @@ export async function PUT(request, { params }) {
       let grandTotalAmount = 0;
       const existingSale = await collection.findOne({ _id: new ObjectId(id) });
       const saleType = existingSale ? existingSale.saleType || 'fuel' : 'fuel';
-      
+
       if (saleType === 'fuel' && body.fuels !== undefined) {
         const processedFuels = body.fuels.map(f => {
           const opening = parseFloat(f.openingReading) || 0;
@@ -79,7 +79,7 @@ export async function PUT(request, { params }) {
           const saleQty = totalQty - testing;
           const totalAmount = saleQty * fuelRate;
           const roundedTotal = Math.round(totalAmount * 100) / 100;
-          
+
           grandTotalAmount += roundedTotal;
 
           return {
@@ -96,7 +96,7 @@ export async function PUT(request, { params }) {
         updateData.fuels = processedFuels;
       } else if (saleType === 'inventory' && body.items !== undefined) {
         const inventoryCollection = await getCollection('inventory');
-        
+
         // Restore previous stock
         if (existingSale.items) {
           for (const item of existingSale.items) {
@@ -115,7 +115,7 @@ export async function PUT(request, { params }) {
           const rate = parseFloat(item.rate) || 0;
           const totalAmount = qty * rate;
           const roundedTotal = Math.round(totalAmount * 100) / 100;
-          
+
           grandTotalAmount += roundedTotal;
 
           processedItems.push({
@@ -166,35 +166,36 @@ export async function PUT(request, { params }) {
       // Recalculate debt
       const netExpected = updateData.totalAmount - expensesTotal;
       const rawDiff = Math.round((netExpected - updateData.cashAmount - updateData.digitalAmount - updateData.hpAmount) * 100) / 100;
-      let debtAmount = 0;
-      let extraIncome = 0;
-      let finalDebtEntries = [];
+      const inputDebtEntries = Array.isArray(body.debtEntries) ? body.debtEntries : [];
+      let sumOfDebts = 0;
+      const finalDebtEntries = [];
 
-      if (rawDiff > 0) {
-        debtAmount = rawDiff;
-        const inputDebtEntries = Array.isArray(body.debtEntries) ? body.debtEntries : [];
-        let sumOfDebts = 0;
-        inputDebtEntries.forEach(entry => {
-          const amt = parseFloat(entry.amount) || 0;
-          if (amt > 0) {
-            sumOfDebts += amt;
-            finalDebtEntries.push({
-              clientName: entry.clientName || 'Unknown',
-              amount: amt,
-              settled: entry.settled || false
-            });
-          }
-        });
-        const remainingDebt = Math.round((debtAmount - sumOfDebts) * 100) / 100;
-        if (remainingDebt > 0) {
+      inputDebtEntries.forEach(entry => {
+        const amt = parseFloat(entry.amount) || 0;
+        if (amt > 0) {
+          sumOfDebts += amt;
           finalDebtEntries.push({
-            clientName: updateData.operatorName || body.operatorName || existingSale.operatorName,
-            amount: remainingDebt,
-            settled: false
+            clientName: entry.clientName || 'Unknown',
+            amount: amt,
+            settled: entry.settled || false
           });
         }
-      } else if (rawDiff < 0) {
-        extraIncome = Math.abs(rawDiff);
+      });
+
+      let debtAmount = 0;
+      let extraIncome = 0;
+      const pendingDebt = Math.round((rawDiff - sumOfDebts) * 100) / 100;
+
+      if (pendingDebt > 0) {
+        finalDebtEntries.push({
+          clientName: updateData.operatorName || body.operatorName || existingSale.operatorName,
+          amount: pendingDebt,
+          settled: false
+        });
+        debtAmount = Math.round((sumOfDebts + pendingDebt) * 100) / 100;
+      } else {
+        extraIncome = Math.abs(pendingDebt);
+        debtAmount = sumOfDebts;
       }
 
       updateData.debtAmount = debtAmount;

@@ -132,7 +132,7 @@ export default function DailySalesPage() {
   function openEdit(sale) {
     setEditingSale(sale);
     const saleType = sale.saleType || 'fuel';
-    
+
     let fuelsObj = {};
     if (saleType === 'fuel') {
       if (sale.fuels) {
@@ -269,7 +269,7 @@ export default function DailySalesPage() {
     const val = formData.digitalAmount;
     if (typeof val === 'string' && val.includes('-')) {
       if (val.startsWith('-') && (val.match(/-/g) || []).length === 1) {
-         return;
+        return;
       }
       const parts = val.split('-');
       if (parts.length === 2 && parts[0] !== '' && parts[1] !== '') {
@@ -303,7 +303,7 @@ export default function DailySalesPage() {
   function updateInventoryItem(index, field, value) {
     const newItems = [...formData.items];
     newItems[index] = { ...newItems[index], [field]: value };
-    
+
     // Auto-fill rate when item is selected
     if (field === 'inventoryId') {
       const selectedInv = inventoryList.find(i => i._id === value);
@@ -312,7 +312,7 @@ export default function DailySalesPage() {
         newItems[index].rate = selectedInv.price.toString();
       }
     }
-    
+
     updateField('items', newItems);
   }
 
@@ -363,7 +363,7 @@ export default function DailySalesPage() {
       digitalAmount: currentDigital,
       date: selectedDate,
     };
-    
+
     if (formData.saleType === 'fuel') {
       payload.fuels = Object.entries(formData.fuels).map(([fuelType, data]) => ({
         fuelType,
@@ -567,7 +567,7 @@ export default function DailySalesPage() {
                 )}
               </div>
             </div>
-            
+
             {/* Fuel Rows */}
             {sale.saleType !== 'inventory' && (sale.fuels || [sale]).map((f, idx) => (
               <div key={idx} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border-light)' }}>
@@ -598,23 +598,23 @@ export default function DailySalesPage() {
                 </div>
               </div>
             ))}
-            
+
             {/* Inventory Item Rows */}
             {sale.saleType === 'inventory' && (sale.items || []).map((item, idx) => (
-               <div key={idx} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border-light)' }}>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                   <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>{item.name}</div>
-                   <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Rate: <strong style={{ color: 'var(--text-primary)' }}>₹{item.rate}</strong></div>
-                 </div>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}>
-                   <span style={{ color: 'var(--text-secondary)' }}>Quantity</span>
-                   <span style={{ fontWeight: 600 }}>{item.quantity} units</span>
-                 </div>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '1px dashed var(--border)', fontSize: 14 }}>
-                    <span style={{ fontWeight: 600 }}>Item Total</span>
-                    <strong style={{ color: 'var(--accent)' }}>₹{item.totalAmount?.toLocaleString('en-IN')}</strong>
-                  </div>
-               </div>
+              <div key={idx} style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border-light)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 15 }}>{item.name}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Rate: <strong style={{ color: 'var(--text-primary)' }}>₹{item.rate}</strong></div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Quantity</span>
+                  <span style={{ fontWeight: 600 }}>{item.quantity} units</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '1px dashed var(--border)', fontSize: 14 }}>
+                  <span style={{ fontWeight: 600 }}>Item Total</span>
+                  <strong style={{ color: 'var(--accent)' }}>₹{item.totalAmount?.toLocaleString('en-IN')}</strong>
+                </div>
+              </div>
             ))}
 
             {/* Expenses */}
@@ -719,21 +719,21 @@ export default function DailySalesPage() {
         disableOutsideClick={true}
       >
         <form onSubmit={handleSave}>
-          
+
           {/* Sale Type Selector (Only on Add) */}
           {!editingSale && (
             <div className="form-group" style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className={`btn btn-sm ${formData.saleType === 'fuel' ? 'btn-primary' : 'btn-outline'}`}
                   style={{ flex: 1 }}
                   onClick={() => updateField('saleType', 'fuel')}
                 >
                   ⛽ Fuel Sale
                 </button>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className={`btn btn-sm ${formData.saleType === 'inventory' ? 'btn-primary' : 'btn-outline'}`}
                   style={{ flex: 1 }}
                   onClick={() => updateField('saleType', 'inventory')}
@@ -847,7 +847,7 @@ export default function DailySalesPage() {
                 <label className="form-label" style={{ marginBottom: 0 }}>Items *</label>
                 <button type="button" className="btn btn-sm btn-outline" onClick={addInventoryItem}>+ Add Item</button>
               </div>
-              
+
               {formData.items.length === 0 ? (
                 <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: '6px' }}>
                   No items added yet.
@@ -855,7 +855,7 @@ export default function DailySalesPage() {
               ) : (
                 formData.items.map((item, idx) => (
                   <div key={idx} style={{ padding: '12px', border: '1px solid var(--border)', borderRadius: '6px', marginBottom: '12px' }}>
-                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
                       <div style={{ flex: 1 }}>
                         <select
                           className="form-input"
@@ -870,32 +870,32 @@ export default function DailySalesPage() {
                         </select>
                       </div>
                       <button type="button" className="btn-icon danger" onClick={() => removeInventoryItem(idx)}>🗑️</button>
-                     </div>
-                     <div className="form-row">
-                       <div className="form-group">
-                         <label className="form-label">Quantity</label>
-                         <input
-                           className="form-input"
-                           type="number"
-                           step="0.01"
-                           value={item.quantity}
-                           onChange={(e) => updateInventoryItem(idx, 'quantity', e.target.value)}
-                           required
-                           placeholder="0"
-                         />
-                       </div>
-                       <div className="form-group">
-                         <label className="form-label">Rate (₹)</label>
-                         <input
-                           className="form-input"
-                           disabled={true}
-                           type="number"
-                           step="0.01"
-                           value={item.rate}
-                           placeholder="0.00"
-                         />
-                       </div>
-                     </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label className="form-label">Quantity</label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          step="0.01"
+                          value={item.quantity}
+                          onChange={(e) => updateInventoryItem(idx, 'quantity', e.target.value)}
+                          required
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Rate (₹)</label>
+                        <input
+                          className="form-input"
+                          disabled={true}
+                          type="number"
+                          step="0.01"
+                          value={item.rate}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))
               )}
@@ -981,49 +981,51 @@ export default function DailySalesPage() {
             </div>
           </div>
 
-          {/* Over/Under Collection */}
-          {diffAmount < 0 && (
-            <div style={{ marginTop: 12, padding: 12, backgroundColor: 'rgba(var(--success-rgb), 0.1)', borderRadius: 6, border: '1px solid var(--success)' }}>
-              <div style={{ color: 'var(--success)', fontWeight: 600 }}>Extra Received: ₹{Math.abs(diffAmount).toLocaleString('en-IN')}</div>
-            </div>
-          )}
-
-          {diffAmount > 0 && (
-            <div style={{ marginTop: 12, padding: 12, border: '1px solid var(--border)', borderRadius: 6 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ color: pendingDebt < 0 ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
-                  {pendingDebt < 0 ? `Extra Received: ₹${Math.abs(pendingDebt).toLocaleString('en-IN')}` : `Debt Pending: ₹${pendingDebt.toLocaleString('en-IN')}`}
-                </div>
-                <button type="button" className="btn btn-sm btn-outline" onClick={addDebtEntry}>+ Add Debt</button>
+          {/* Debt & Collection Status */}
+          <div style={{ marginTop: 12, padding: 12, border: pendingDebt < 0 ? '1px solid var(--success)' : '1px solid var(--border)', backgroundColor: pendingDebt < 0 ? 'rgba(64, 192, 87, 0.1)' : 'transparent', borderRadius: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: formData.debtEntries?.length > 0 ? 8 : 0 }}>
+              <div style={{ color: pendingDebt < 0 ? 'var(--success)' : (pendingDebt > 0 ? 'var(--danger)' : 'var(--text-secondary)'), fontWeight: 600 }}>
+                {pendingDebt < 0 ? `Extra Received: ₹${Math.abs(pendingDebt).toLocaleString('en-IN')}` : 
+                 pendingDebt > 0 ? `Debt Pending: ₹${pendingDebt.toLocaleString('en-IN')}` : 
+                 'Exact Collection'}
               </div>
-              {(formData.debtEntries || []).map((entry, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ flex: 2 }}>
-                    <input
-                      className="form-input"
-                      placeholder="Client Name"
-                      value={entry.clientName}
-                      onChange={(e) => updateDebtEntry(idx, 'clientName', e.target.value)}
-                    />
+              <button type="button" className="btn btn-sm btn-outline" onClick={addDebtEntry}>+ Add Debt</button>
+            </div>
+            
+            {(formData.debtEntries || []).length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                {(formData.debtEntries || []).map((entry, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ flex: 2 }}>
+                      <input
+                        className="form-input"
+                        placeholder="Client Name"
+                        value={entry.clientName}
+                        onChange={(e) => updateDebtEntry(idx, 'clientName', e.target.value)}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <input
+                        className="form-input"
+                        type="number"
+                        step="0.01"
+                        placeholder="Amount"
+                        value={entry.amount}
+                        onChange={(e) => updateDebtEntry(idx, 'amount', e.target.value)}
+                      />
+                    </div>
+                    <button type="button" className="btn-icon danger" onClick={() => removeDebtEntry(idx)}>🗑️</button>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <input
-                      className="form-input"
-                      type="number"
-                      step="0.01"
-                      placeholder="Amount"
-                      value={entry.amount}
-                      onChange={(e) => updateDebtEntry(idx, 'amount', e.target.value)}
-                    />
-                  </div>
-                  <button type="button" className="btn-icon danger" onClick={() => removeDebtEntry(idx)}>🗑️</button>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+            
+            {pendingDebt > 0 && (
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
                 Unassigned debt will be assigned to the operator automatically.
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: 16 }}>
             {editingSale ? 'Update Entry' : 'Save Entry'}
