@@ -38,14 +38,6 @@ export async function GET(request) {
       grandExtraIncome += sale.extraIncome || 0;
       grandExpenses += sale.expensesTotal || 0;
 
-      if (sale.pumpNumber === 5) {
-        cngSummary.cash += sale.cashAmount || 0;
-        cngSummary.digital += sale.digitalAmount || 0;
-        cngSummary.hp += sale.hpAmount || 0;
-        cngSummary.debt += sale.debtAmount || 0;
-        cngSummary.totalAmount += sale.totalAmount || 0;
-      }
-
       const saleDebt = sale.debtAmount || 0;
       let unsettledSaleDebt = 0;
       if (saleDebt > 0) {
@@ -58,6 +50,15 @@ export async function GET(request) {
           }
         }
         grandUnsettledDebt += unsettledSaleDebt;
+      }
+
+      if (sale.pumpNumber === 5) {
+        cngSummary.cash += sale.cashAmount || 0;
+        cngSummary.digital += sale.digitalAmount || 0;
+        cngSummary.hp += sale.hpAmount || 0;
+        cngSummary.debt += sale.debtAmount || 0;
+        cngSummary.totalAmount += sale.totalAmount || 0;
+        cngSummary.unsettledDebt = (cngSummary.unsettledDebt || 0) + unsettledSaleDebt;
       }
 
       if (sale.fuels && Array.isArray(sale.fuels)) {

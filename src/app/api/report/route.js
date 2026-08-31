@@ -37,12 +37,37 @@ export async function GET(request) {
       grandExtraIncome += sale.extraIncome || 0;
       grandExpenses += sale.expensesTotal || 0;
 
+      const saleDebt = sale.debtAmount || 0;
+      let unsettledSaleDebt = 0;
+      if (saleDebt > 0) {
+        grandDebt += saleDebt;
+        debtSales.push({
+          _id: sale._id,
+          operatorName: sale.operatorName,
+          pumpNumber: sale.pumpNumber,
+          fuelType: sale.fuels ? sale.fuels.map(f => f.fuelType).join(', ') : sale.fuelType,
+          totalAmount: sale.totalAmount,
+          debtAmount: saleDebt,
+          debtSettled: sale.debtSettled || false,
+          debtEntries: sale.debtEntries || [],
+        });
+        if (!sale.debtSettled) {
+          if (sale.debtEntries && sale.debtEntries.length > 0) {
+            unsettledSaleDebt = sale.debtEntries.reduce((acc, e) => !e.settled ? acc + (e.amount || 0) : acc, 0);
+          } else {
+            unsettledSaleDebt = saleDebt;
+          }
+          grandUnsettledDebt += unsettledSaleDebt;
+        }
+      }
+
       if (sale.pumpNumber === 5) {
         cngSummary.cash += sale.cashAmount || 0;
         cngSummary.digital += sale.digitalAmount || 0;
         cngSummary.hp += sale.hpAmount || 0;
         cngSummary.debt += sale.debtAmount || 0;
         cngSummary.totalAmount += sale.totalAmount || 0;
+        cngSummary.unsettledDebt = (cngSummary.unsettledDebt || 0) + unsettledSaleDebt;
       }
 
       if (sale.fuels && Array.isArray(sale.fuels)) {
@@ -64,28 +89,6 @@ export async function GET(request) {
         fuelBreakdown[sale.fuelType].qty += sale.saleQty || 0;
         fuelBreakdown[sale.fuelType].amount += sale.totalAmount || 0;
         fuelBreakdown[sale.fuelType].rate = sale.rate || fuelBreakdown[sale.fuelType].rate;
-      }
-
-      const saleDebt = sale.debtAmount || 0;
-      if (saleDebt > 0) {
-        grandDebt += saleDebt;
-        debtSales.push({
-          _id: sale._id,
-          operatorName: sale.operatorName,
-          pumpNumber: sale.pumpNumber,
-          fuelType: sale.fuels ? sale.fuels.map(f => f.fuelType).join(', ') : sale.fuelType,
-          totalAmount: sale.totalAmount,
-          debtAmount: saleDebt,
-          debtSettled: sale.debtSettled || false,
-          debtEntries: sale.debtEntries || [],
-        });
-        if (!sale.debtSettled) {
-          if (sale.debtEntries && sale.debtEntries.length > 0) {
-            grandUnsettledDebt += sale.debtEntries.reduce((acc, e) => !e.settled ? acc + (e.amount || 0) : acc, 0);
-          } else {
-            grandUnsettledDebt += saleDebt;
-          }
-        }
       }
     });
 

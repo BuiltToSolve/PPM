@@ -7,7 +7,7 @@ export async function GET(request) {
     const status = searchParams.get('status') || 'all';
 
     const collection = await getCollection('dailySales');
-    
+
     let query = { debtAmount: { $gt: 0 } };
     if (status === 'unsettled') {
       query.debtSettled = { $ne: true };

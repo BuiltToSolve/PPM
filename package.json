@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "html2pdf.js": "^0.14.0",
     "jose": "^6.2.3",
     "lucide-react": "^1.23.0",
     "mongodb": "^7.4.0",

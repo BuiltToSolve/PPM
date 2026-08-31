@@ -70,19 +70,19 @@ export default function DebtsPage() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button 
+          <button
             className={`btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setFilter('all')}
           >
             All
           </button>
-          <button 
+          <button
             className={`btn btn-sm ${filter === 'unsettled' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setFilter('unsettled')}
           >
             Unsettled
           </button>
-          <button 
+          <button
             className={`btn btn-sm ${filter === 'settled' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setFilter('settled')}
           >
@@ -117,7 +117,7 @@ export default function DebtsPage() {
                     {sale.fuelType && ` · ${sale.fuelType}`}
                   </div>
                 </div>
-                
+
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ fontSize: 16, fontWeight: 700, color: sale.debtSettled ? 'var(--success)' : 'var(--danger)' }}>
                     Debt: ₹{sale.debtAmount.toLocaleString('en-IN')}

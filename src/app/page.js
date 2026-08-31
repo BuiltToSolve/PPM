@@ -41,12 +41,14 @@ export default function Dashboard() {
     );
   }
 
-  if (!data) {
+  if (!data || data.error || data.totalAmount === undefined) {
     return (
       <div className="page">
         <div className="empty-state">
           <div className="empty-state-icon">⚠️</div>
-          <div className="empty-state-text">Failed to load dashboard</div>
+          <div className="empty-state-text">
+            {data?.error ? `Error: ${data.error}` : 'Failed to load dashboard'}
+          </div>
         </div>
       </div>
     );

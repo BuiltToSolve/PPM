@@ -16,6 +16,7 @@ export default function MonthlyReportPage() {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
   async function fetchReport() {
     if (!startDate || !endDate) {
@@ -34,10 +35,62 @@ export default function MonthlyReportPage() {
     }
   }
 
+  const exportToPDF = async () => {
+    setIsExporting(true);
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = document.getElementById('report-content');
+      
+      const opt = {
+        margin:       [10, 10, 10, 10],
+        filename:     `monthly-report-${startDate}-to-${endDate}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      
+      const buttons = element.querySelectorAll('button');
+      buttons.forEach(btn => btn.style.display = 'none');
+      
+      const pdfHeader = element.querySelector('.pdf-header');
+      if (pdfHeader) pdfHeader.style.display = 'block';
+
+      element.style.background = 'white';
+
+      await html2pdf().set(opt).from(element).save();
+      
+      if (pdfHeader) pdfHeader.style.display = 'none';
+      buttons.forEach(btn => btn.style.display = '');
+      
+      setToast('PDF exported successfully');
+    } catch (err) {
+      console.error(err);
+      setToast('Error exporting PDF');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const displayGrandTotal = report ? report.grandTotal - (report.cngSummary?.totalAmount || 0) : 0;
+  const displayGrandCash = report ? report.grandCash - (report.cngSummary?.cash || 0) : 0;
+  const displayGrandDigital = report ? report.grandDigital - (report.cngSummary?.digital || 0) : 0;
+  const displayGrandHp = report ? (report.grandHp || 0) - (report.cngSummary?.hp || 0) : 0;
+  const displayGrandDebt = report ? report.grandDebt - (report.cngSummary?.debt || 0) : 0;
+  const displayGrandUnsettledDebt = report ? report.grandUnsettledDebt - (report.cngSummary?.unsettledDebt || 0) : 0;
+
   return (
     <div className="page">
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="page-header">
         <h1 className="page-title">Custom Report</h1>
+        {report && (
+          <button 
+            className="btn btn-sm btn-outline" 
+            onClick={exportToPDF} 
+            disabled={isExporting}
+          >
+            {isExporting ? 'Exporting...' : 'Export PDF'}
+          </button>
+        )}
       </div>
 
       {/* Date Filter */}
@@ -76,37 +129,45 @@ export default function MonthlyReportPage() {
 
       {/* Report Results */}
       {report && (
-        <>
+        <div id="report-content">
+          <div className="pdf-header" style={{ display: 'none', marginBottom: 20 }}>
+            <h2 style={{ fontSize: 22, margin: 0 }}>Custom Report</h2>
+            <div style={{ color: '#666', fontSize: 14, marginTop: 4 }}>
+              Period: {new Date(startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} to {new Date(endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </div>
+            <div style={{ height: 1, background: '#eee', margin: '12px 0' }}></div>
+          </div>
+
           {/* Grand Totals */}
           <div className="stats-grid">
             <div className="stat-card accent full-width">
-              <div className="stat-value">₹{report.grandTotal.toLocaleString('en-IN')}</div>
+              <div className="stat-value">₹{displayGrandTotal.toLocaleString('en-IN')}</div>
               <div className="stat-label">Total Sales ({report.daysRecorded} days)</div>
             </div>
             <div className="stat-card">
               <div className="stat-value" style={{ fontSize: 18, color: 'var(--success)' }}>
-                ₹{report.grandCash.toLocaleString('en-IN')}
+                ₹{displayGrandCash.toLocaleString('en-IN')}
               </div>
               <div className="stat-label">Cash</div>
             </div>
             <div className="stat-card">
               <div className="stat-value" style={{ fontSize: 18, color: 'var(--accent)' }}>
-                ₹{report.grandDigital.toLocaleString('en-IN')}
+                ₹{displayGrandDigital.toLocaleString('en-IN')}
               </div>
               <div className="stat-label">Digital</div>
             </div>
             <div className="stat-card">
               <div className="stat-value" style={{ fontSize: 18, color: 'var(--accent-alt, #007aff)' }}>
-                ₹{report.grandHp?.toLocaleString('en-IN') || 0}
+                ₹{displayGrandHp.toLocaleString('en-IN')}
               </div>
               <div className="stat-label">HP</div>
             </div>
-            {report.grandDebt > 0 && (
+            {displayGrandDebt > 0 && (
               <div className="stat-card">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div>
                     <div className="stat-value" style={{ fontSize: 18, color: 'var(--danger)' }}>
-                      ₹{report.grandDebt.toLocaleString('en-IN')}
+                      ₹{displayGrandDebt.toLocaleString('en-IN')}
                     </div>
                     <div className="stat-label">Total Debt</div>
                   </div>
@@ -114,19 +175,19 @@ export default function MonthlyReportPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span className="stat-label" style={{ fontSize: 12 }}>Settled</span>
                       <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--success)' }}>
-                        ₹{(report.grandDebt - report.grandUnsettledDebt).toLocaleString('en-IN')}
+                        ₹{(displayGrandDebt - displayGrandUnsettledDebt).toLocaleString('en-IN')}
                       </span>
                     </div>
-                    {report.grandUnsettledDebt > 0 && (
+                    {displayGrandUnsettledDebt > 0 && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span className="stat-label" style={{ fontSize: 12 }}>Unsettled</span>
                         <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--warning)' }}>
-                          ₹{report.grandUnsettledDebt.toLocaleString('en-IN')}
+                          ₹{displayGrandUnsettledDebt.toLocaleString('en-IN')}
                         </span>
                       </div>
                     )}
                   </div>
-                  {report.grandUnsettledDebt === 0 && report.grandDebt > 0 && (
+                  {displayGrandUnsettledDebt === 0 && displayGrandDebt > 0 && (
                     <div style={{ marginTop: 2 }}>
                       <span className="badge badge-active" style={{ fontSize: 12, padding: '4px 8px' }}>All Settled ✓</span>
                     </div>
@@ -181,10 +242,35 @@ export default function MonthlyReportPage() {
                 </div>
                 {report.cngSummary.debt > 0 && (
                   <div className="stat-card">
-                    <div className="stat-value" style={{ fontSize: 18, color: 'var(--danger)' }}>
-                      ₹{report.cngSummary.debt.toLocaleString('en-IN')}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div>
+                        <div className="stat-value" style={{ fontSize: 18, color: 'var(--danger)' }}>
+                          ₹{report.cngSummary.debt.toLocaleString('en-IN')}
+                        </div>
+                        <div className="stat-label">Total Debt</div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid var(--border-light)', paddingTop: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span className="stat-label" style={{ fontSize: 12 }}>Settled</span>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--success)' }}>
+                            ₹{(report.cngSummary.debt - (report.cngSummary.unsettledDebt || 0)).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                        {(report.cngSummary.unsettledDebt || 0) > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span className="stat-label" style={{ fontSize: 12 }}>Unsettled</span>
+                            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--warning)' }}>
+                              ₹{(report.cngSummary.unsettledDebt || 0).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {(report.cngSummary.unsettledDebt || 0) === 0 && report.cngSummary.debt > 0 && (
+                        <div style={{ marginTop: 2 }}>
+                          <span className="badge badge-active" style={{ fontSize: 12, padding: '4px 8px' }}>All Settled ✓</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="stat-label">Total Debt</div>
                   </div>
                 )}
               </div>
@@ -305,7 +391,7 @@ export default function MonthlyReportPage() {
               </div>
             </>
           )}
-        </>
+        </div>
       )}
 
       {toast && <Toast message={toast} onDone={() => setToast('')} />}

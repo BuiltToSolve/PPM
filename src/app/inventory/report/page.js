@@ -16,6 +16,7 @@ function InventoryReportContent() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
   const [userRole, setUserRole] = useState('admin');
+  const [isExporting, setIsExporting] = useState(false);
 
   async function fetchReport(sDate = startDate, eDate = endDate) {
     if (!sDate || !eDate) {
@@ -77,10 +78,55 @@ function InventoryReportContent() {
     }
   }
 
+  const exportToPDF = async () => {
+    setIsExporting(true);
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = document.getElementById('report-content');
+      
+      const opt = {
+        margin:       [10, 10, 10, 10],
+        filename:     `inventory-report-${startDate}-to-${endDate}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      
+      const buttons = element.querySelectorAll('button');
+      buttons.forEach(btn => btn.style.display = 'none');
+      
+      const pdfHeader = element.querySelector('.pdf-header');
+      if (pdfHeader) pdfHeader.style.display = 'block';
+
+      element.style.background = 'white';
+
+      await html2pdf().set(opt).from(element).save();
+      
+      if (pdfHeader) pdfHeader.style.display = 'none';
+      buttons.forEach(btn => btn.style.display = '');
+      
+      setToast('PDF exported successfully');
+    } catch (err) {
+      console.error(err);
+      setToast('Error exporting PDF');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">Inventory Sales Report</h1>
+        {report && (
+          <button 
+            className="btn btn-sm btn-outline" 
+            onClick={exportToPDF} 
+            disabled={isExporting}
+          >
+            {isExporting ? 'Exporting...' : 'Export PDF'}
+          </button>
+        )}
       </div>
 
       {/* Date Filter */}
@@ -119,7 +165,15 @@ function InventoryReportContent() {
 
       {/* Report Results */}
       {report && (
-        <>
+        <div id="report-content">
+          <div className="pdf-header" style={{ display: 'none', marginBottom: 20 }}>
+            <h2 style={{ fontSize: 22, margin: 0 }}>Inventory Sales Report</h2>
+            <div style={{ color: '#666', fontSize: 14, marginTop: 4 }}>
+              Period: {new Date(startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} to {new Date(endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </div>
+            <div style={{ height: 1, background: '#eee', margin: '12px 0' }}></div>
+          </div>
+
           {/* Grand Totals */}
           <div className="stats-grid">
             <div className="stat-card accent full-width">
@@ -352,7 +406,7 @@ function InventoryReportContent() {
               </div>
             </>
           )}
-        </>
+        </div>
       )}
 
       {toast && <Toast message={toast} onDone={() => setToast('')} />}
