@@ -256,32 +256,39 @@ export default function DailySalesPage() {
     }));
   }
 
-  function handleDigitalChange(e) {
+  function handleAmountChange(field, e) {
     const val = e.target.value;
-    if (/[^\d.\-]/.test(val)) {
-      setToast('Invalid format. Use only numbers or "X-Y" format.');
+    if (/[^\d.\-\+]/.test(val)) {
+      setToast('Invalid format. Use only numbers, +, or -.');
       return;
     }
-    updateField('digitalAmount', val);
+    updateField(field, val);
   }
 
-  function handleDigitalBlur() {
-    const val = formData.digitalAmount;
-    if (typeof val === 'string' && val.includes('-')) {
-      if (val.startsWith('-') && (val.match(/-/g) || []).length === 1) {
-        return;
+  function handleAmountBlur(field) {
+    const val = formData[field];
+    if (typeof val === 'string' && (val.includes('-') || val.includes('+'))) {
+      if (val.startsWith('-') && (val.match(/[\-\+]/g) || []).length === 1) {
+        return; // Just a negative number
       }
-      const parts = val.split('-');
-      if (parts.length === 2 && parts[0] !== '' && parts[1] !== '') {
-        const v1 = parseFloat(parts[0]);
-        const v2 = parseFloat(parts[1]);
-        if (!isNaN(v1) && !isNaN(v2)) {
-          updateField('digitalAmount', Math.abs(v1 - v2).toString());
-        } else {
-          setToast('Invalid numbers in difference format.');
+      try {
+        const parts = val.match(/[+-]?\d*\.?\d+/g);
+        if (parts) {
+          let result = parts.reduce((sum, p) => sum + parseFloat(p), 0);
+          // Retain Math.abs behavior for pure X-Y differences for backwards compatibility
+          if (val.includes('-') && !val.includes('+') && val.split('-').length === 2) {
+            const splitted = val.split('-');
+            if (splitted[0] !== '' && splitted[1] !== '') {
+               result = Math.abs(parseFloat(splitted[0]) - parseFloat(splitted[1]));
+            }
+          }
+          // Only update if it's a valid number
+          if (!isNaN(result)) {
+            updateField(field, result.toString());
+          }
         }
-      } else {
-        setToast('Invalid format. Use "X-Y" format for differences.');
+      } catch (err) {
+        setToast('Invalid format.');
       }
     }
   }
@@ -963,10 +970,11 @@ export default function DailySalesPage() {
               <label className="form-label">Cash (₹)</label>
               <input
                 className="form-input"
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={formData.cashAmount}
-                onChange={(e) => updateField('cashAmount', e.target.value)}
+                onChange={(e) => handleAmountChange('cashAmount', e)}
+                onBlur={() => handleAmountBlur('cashAmount')}
                 placeholder="0.00"
               />
             </div>
@@ -977,8 +985,8 @@ export default function DailySalesPage() {
                 type="text"
                 inputMode="decimal"
                 value={formData.digitalAmount}
-                onChange={handleDigitalChange}
-                onBlur={handleDigitalBlur}
+                onChange={(e) => handleAmountChange('digitalAmount', e)}
+                onBlur={() => handleAmountBlur('digitalAmount')}
                 placeholder="0.00"
               />
             </div>
@@ -986,10 +994,11 @@ export default function DailySalesPage() {
               <label className="form-label">HP (₹)</label>
               <input
                 className="form-input"
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={formData.hpAmount}
-                onChange={(e) => updateField('hpAmount', e.target.value)}
+                onChange={(e) => handleAmountChange('hpAmount', e)}
+                onBlur={() => handleAmountBlur('hpAmount')}
                 placeholder="0.00"
               />
             </div>
