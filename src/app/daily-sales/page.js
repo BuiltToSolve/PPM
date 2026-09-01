@@ -971,7 +971,6 @@ export default function DailySalesPage() {
               <input
                 className="form-input"
                 type="text"
-                inputMode="decimal"
                 value={formData.cashAmount}
                 onChange={(e) => handleAmountChange('cashAmount', e)}
                 onBlur={() => handleAmountBlur('cashAmount')}
@@ -983,7 +982,6 @@ export default function DailySalesPage() {
               <input
                 className="form-input"
                 type="text"
-                inputMode="decimal"
                 value={formData.digitalAmount}
                 onChange={(e) => handleAmountChange('digitalAmount', e)}
                 onBlur={() => handleAmountBlur('digitalAmount')}
@@ -995,7 +993,6 @@ export default function DailySalesPage() {
               <input
                 className="form-input"
                 type="text"
-                inputMode="decimal"
                 value={formData.hpAmount}
                 onChange={(e) => handleAmountChange('hpAmount', e)}
                 onBlur={() => handleAmountBlur('hpAmount')}
