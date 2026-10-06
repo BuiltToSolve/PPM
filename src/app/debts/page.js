@@ -207,6 +207,49 @@ export default function DebtsPage() {
     return displayedDebts.reduce((sum, s) => sum + getRemainingDebt(s), 0);
   }, [displayedDebts]);
 
+  // Calculation of highlighted client entries across displayed records
+  const clientMatchingInfo = useMemo(() => {
+    if (!searchTrimmed) {
+      return {
+        hasClientMatch: false,
+        clientNameLabel: '',
+        clientTotal: 0,
+        clientEntriesCount: 0,
+      };
+    }
+
+    const matchedNames = new Set();
+    let total = 0;
+    let count = 0;
+
+    displayedDebts.forEach((sale) => {
+      if (Array.isArray(sale.debtEntries)) {
+        sale.debtEntries.forEach((entry) => {
+          if (entry.clientName && entry.clientName.toLowerCase().includes(searchTrimmed)) {
+            matchedNames.add(entry.clientName.trim());
+            total += Number(entry.amount) || 0;
+            count += 1;
+          }
+        });
+      }
+    });
+
+    const namesList = Array.from(matchedNames);
+    const hasMatch = count > 0;
+    const nameLabel = namesList.length === 1 
+      ? namesList[0] 
+      : namesList.length > 1 
+        ? `"${searchQuery.trim()}"` 
+        : '';
+
+    return {
+      hasClientMatch: hasMatch,
+      clientNameLabel: nameLabel,
+      clientTotal: total,
+      clientEntriesCount: count,
+    };
+  }, [displayedDebts, searchTrimmed, searchQuery]);
+
   return (
     <div className="page">
       <div className="page-header">
@@ -603,23 +646,49 @@ export default function DebtsPage() {
             <span> matching &ldquo;<strong>{searchQuery}</strong>&rdquo;</span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>
-            Total Sum Showing:
-          </span>
-          <span
-            style={{
-              fontSize: 17,
-              fontWeight: 700,
-              color: filter === 'settled' ? 'var(--success)' : filter === 'unsettled' ? 'var(--danger)' : 'var(--accent)',
-            }}
-          >
-            ₹{formatCurrency(pageTotal)}
-          </span>
-          {filter === 'unsettled' && pageRemaining < pageTotal && (
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              (Pending: <strong style={{ color: 'var(--danger)' }}>₹{formatCurrency(pageRemaining)}</strong>)
-            </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {clientMatchingInfo.hasClientMatch ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>
+                Total Client Debt ({clientMatchingInfo.clientNameLabel}):
+              </span>
+              <span
+                style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: 'var(--accent)',
+                }}
+              >
+                ₹{formatCurrency(clientMatchingInfo.clientTotal)}
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)', borderLeft: '1px solid var(--border)', paddingLeft: 8 }}>
+                Total Records Debt: <strong>₹{formatCurrency(pageTotal)}</strong>
+              </span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>
+                {filter === 'settled'
+                  ? 'Total Settled Debt:'
+                  : filter === 'unsettled'
+                    ? 'Total Unsettled Debt:'
+                    : 'Total Debt:'}
+              </span>
+              <span
+                style={{
+                  fontSize: 17,
+                  fontWeight: 700,
+                  color: filter === 'settled' ? 'var(--success)' : filter === 'unsettled' ? 'var(--danger)' : 'var(--accent)',
+                }}
+              >
+                ₹{formatCurrency(pageTotal)}
+              </span>
+              {filter === 'unsettled' && pageRemaining < pageTotal && (
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  (Pending: <strong style={{ color: 'var(--danger)' }}>₹{formatCurrency(pageRemaining)}</strong>)
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
