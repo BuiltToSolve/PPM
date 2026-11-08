@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Toast from '@/components/Toast';
+import { apiFetch } from '@/lib/apiClient';
+import { downloadCSV } from '@/lib/exportCsv';
 
 export default function MonthlyReportPage() {
   const router = useRouter();
@@ -25,11 +27,10 @@ export default function MonthlyReportPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`/api/monthly-report?startDate=${startDate}&endDate=${endDate}`);
-      const data = await res.json();
+      const data = await apiFetch(`/api/monthly-report?startDate=${startDate}&endDate=${endDate}`);
       setReport(data);
     } catch (err) {
-      setToast('Error loading report');
+      setToast(err.message || 'Error loading report');
     } finally {
       setLoading(false);
     }
@@ -71,6 +72,32 @@ export default function MonthlyReportPage() {
     }
   };
 
+  const exportToCSV = () => {
+    const list = report?.dailyStats || (report?.dailyBreakdown ? Object.values(report.dailyBreakdown) : []);
+    if (!report || list.length === 0) {
+      setToast('No sales records to export for this date range');
+      return;
+    }
+    const rows = list.map((d) => ({
+      Date: d.date,
+      TotalSale: d.totalAmount || 0,
+      Cash: d.cashAmount || 0,
+      Digital: d.digitalAmount || 0,
+      HP: d.hpAmount || 0,
+      TotalDebt: d.debtAmount || 0,
+      UnsettledDebt: d.unsettledDebtAmount || 0,
+      ExtraIncome: d.extraIncome || 0,
+      Expenses: d.expensesTotal || 0,
+      NetCashInHand: (d.cashAmount || 0) + (d.extraIncome || 0) - (d.expensesTotal || 0),
+    }));
+    const ok = downloadCSV(`monthly-report-${startDate}-to-${endDate}.csv`, rows);
+    if (ok) {
+      setToast('CSV exported successfully');
+    } else {
+      setToast('Failed to export CSV: No records found');
+    }
+  };
+
   const displayGrandTotal = report ? report.grandTotal - (report.cngSummary?.totalAmount || 0) : 0;
   const displayGrandCash = report ? report.grandCash - (report.cngSummary?.cash || 0) : 0;
   const displayGrandDigital = report ? report.grandDigital - (report.cngSummary?.digital || 0) : 0;
@@ -83,13 +110,21 @@ export default function MonthlyReportPage() {
       <div className="page-header">
         <h1 className="page-title">Custom Report</h1>
         {report && (
-          <button 
-            className="btn btn-sm btn-outline" 
-            onClick={exportToPDF} 
-            disabled={isExporting}
-          >
-            {isExporting ? 'Exporting...' : 'Export PDF'}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button 
+              className="btn btn-sm btn-outline" 
+              onClick={exportToCSV}
+            >
+              Export CSV
+            </button>
+            <button 
+              className="btn btn-sm btn-outline" 
+              onClick={exportToPDF} 
+              disabled={isExporting}
+            >
+              {isExporting ? 'Exporting...' : 'Export PDF'}
+            </button>
+          </div>
         )}
       </div>
 

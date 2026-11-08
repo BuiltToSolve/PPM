@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Modal from '@/components/Modal';
 import Toast from '@/components/Toast';
+import { apiFetch } from '@/lib/apiClient';
 
 const PUMP_CONFIG = [
   { pumpNumber: 1, name: 'Pump 1', fuelTypes: ['Petrol', 'Diesel'] },
@@ -34,10 +35,14 @@ export default function DailySalesPage() {
   const [operators, setOperators] = useState([]);
   const [fuelRates, setFuelRates] = useState({});
   const [inventoryList, setInventoryList] = useState([]);
+  const [pumps, setPumps] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingSale, setEditingSale] = useState(null);
   const [toast, setToast] = useState('');
+  const [showDenominations, setShowDenominations] = useState(false);
+  const [denominations, setDenominations] = useState({ 500: '', 200: '', 100: '', 50: '', 20: '', 10: '' });
 
   const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
   const [selectedDate, setSelectedDate] = useState(todayStr);
@@ -60,23 +65,22 @@ export default function DailySalesPage() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [salesRes, opsRes, ratesRes, authRes, invRes] = await Promise.all([
-        fetch(`/api/daily-sales?date=${selectedDate}`),
-        fetch('/api/operators'),
-        fetch('/api/fuel-rates'),
-        fetch('/api/auth/me'),
-        fetch('/api/inventory'),
+      const [salesData, opsData, ratesData, authData, invData, pumpsData, custData] = await Promise.all([
+        apiFetch(`/api/daily-sales?date=${selectedDate}`),
+        apiFetch('/api/operators'),
+        apiFetch('/api/fuel-rates'),
+        apiFetch('/api/auth/me'),
+        apiFetch('/api/inventory'),
+        apiFetch('/api/pumps').catch(() => []),
+        apiFetch('/api/customers').catch(() => []),
       ]);
-      const salesData = await salesRes.json();
-      const opsData = await opsRes.json();
-      const ratesData = await ratesRes.json();
-      const authData = await authRes.json();
-      const invData = await invRes.json();
 
       setSales(salesData);
       setOperators(opsData.filter((o) => o.active));
       setUserRole(authData.role);
       setInventoryList(invData);
+      if (Array.isArray(pumpsData) && pumpsData.length > 0) setPumps(pumpsData);
+      if (Array.isArray(custData)) setCustomers(custData);
 
       // Build rate lookup
       const rateMap = {};
@@ -92,9 +96,46 @@ export default function DailySalesPage() {
   }, [selectedDate]);
 
   useEffect(() => {
-    setLoading(true);
-    fetchAll();
-  }, [fetchAll]);
+    let ignore = false;
+    async function load() {
+      try {
+        const [salesData, opsData, ratesData, authData, invData, pumpsData, custData] = await Promise.all([
+          apiFetch(`/api/daily-sales?date=${selectedDate}`),
+          apiFetch('/api/operators'),
+          apiFetch('/api/fuel-rates'),
+          apiFetch('/api/auth/me'),
+          apiFetch('/api/inventory'),
+          apiFetch('/api/pumps').catch(() => []),
+          apiFetch('/api/customers').catch(() => []),
+        ]);
+
+        if (!ignore) {
+          setSales(salesData);
+          setOperators(opsData.filter((o) => o.active));
+          setUserRole(authData.role);
+          setInventoryList(invData);
+          if (Array.isArray(pumpsData) && pumpsData.length > 0) setPumps(pumpsData);
+          if (Array.isArray(custData)) setCustomers(custData);
+
+          const rateMap = {};
+          ratesData.forEach((r) => {
+            rateMap[r.fuelType] = r.rate;
+          });
+          setFuelRates(rateMap);
+        }
+      } catch (err) {
+        console.error('Failed to load data', err);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, [selectedDate]);
 
   function changeDate(offset) {
     const d = new Date(selectedDate);
@@ -103,11 +144,14 @@ export default function DailySalesPage() {
   }
 
   function getAvailableFuels(pumpNumber) {
-    const pump = PUMP_CONFIG.find((p) => p.pumpNumber === parseInt(pumpNumber));
+    const list = pumps.length > 0 ? pumps : PUMP_CONFIG;
+    const pump = list.find((p) => p.pumpNumber === parseInt(pumpNumber));
     return pump ? pump.fuelTypes : [];
   }
 
   function resetForm() {
+    setDenominations({ 500: '', 200: '', 100: '', 50: '', 20: '', 10: '' });
+    setShowDenominations(false);
     setFormData({
       saleType: 'fuel',
       operatorId: '',
@@ -199,10 +243,41 @@ export default function DailySalesPage() {
             rate: (fuelRates[f] || fuelRates[baseFuelType])?.toString() || ''
           };
         });
+
+        // Continuity: auto-fetch latest closing reading for this pump
+        if (value) {
+          apiFetch(`/api/pumps?pumpNumber=${value}`).then((data) => {
+            if (data?.lastReadings) {
+              setFormData((curr) => {
+                const withContinuity = { ...curr.fuels };
+                Object.keys(withContinuity).forEach((f) => {
+                  if (data.lastReadings[f] !== undefined && !withContinuity[f].openingReading) {
+                    withContinuity[f] = {
+                      ...withContinuity[f],
+                      openingReading: data.lastReadings[f].toString(),
+                    };
+                  }
+                });
+                return { ...curr, fuels: withContinuity };
+              });
+            }
+          }).catch(() => {});
+        }
       }
 
       return updated;
     });
+  }
+
+  function updateDenomination(note, countStr) {
+    const updated = { ...denominations, [note]: countStr };
+    setDenominations(updated);
+    let total = 0;
+    Object.entries(updated).forEach(([val, count]) => {
+      const c = parseInt(count, 10) || 0;
+      total += parseInt(val, 10) * c;
+    });
+    updateField('cashAmount', total > 0 ? total.toString() : '');
   }
 
   function updateDebtEntry(index, field, value) {
@@ -380,16 +455,14 @@ export default function DailySalesPage() {
 
     try {
       if (editingSale) {
-        await fetch(`/api/daily-sales/${editingSale._id}`, {
+        await apiFetch(`/api/daily-sales/${editingSale._id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
         setToast('Sale entry updated');
       } else {
-        await fetch('/api/daily-sales', {
+        await apiFetch('/api/daily-sales', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
         setToast('Sale entry added');
@@ -397,18 +470,18 @@ export default function DailySalesPage() {
       setShowModal(false);
       fetchAll();
     } catch (err) {
-      setToast('Error saving entry');
+      setToast(err.message || 'Error saving entry');
     }
   }
 
   async function handleDelete(id) {
     if (!confirm('Delete this sale entry?')) return;
     try {
-      await fetch(`/api/daily-sales/${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/daily-sales/${id}`, { method: 'DELETE' });
       setToast('Entry deleted');
       fetchAll();
     } catch (err) {
-      setToast('Error deleting entry');
+      setToast(err.message || 'Error deleting entry');
     }
   }
 
@@ -432,29 +505,27 @@ export default function DailySalesPage() {
 
   async function handleSettle(id) {
     try {
-      await fetch(`/api/daily-sales/${id}`, {
+      await apiFetch(`/api/daily-sales/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ debtSettled: true }),
       });
       setToast('Debt marked as settled');
       fetchAll();
     } catch (err) {
-      setToast('Error settling debt');
+      setToast(err.message || 'Error settling debt');
     }
   }
 
   async function handleSettleEntry(id, index) {
     try {
-      await fetch(`/api/daily-sales/${id}`, {
+      await apiFetch(`/api/daily-sales/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ settleDebtEntryIndex: index }),
       });
       setToast('Debt entry settled');
       fetchAll();
     } catch (err) {
-      setToast('Error settling debt entry');
+      setToast(err.message || 'Error settling debt entry');
     }
   }
 
@@ -470,7 +541,9 @@ export default function DailySalesPage() {
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">Daily Sales</h1>
-        <button className="btn btn-primary btn-sm" onClick={openAdd}>+ Add</button>
+        {userRole !== 'viewer' && (
+          <button className="btn btn-primary btn-sm" onClick={openAdd}>+ Add</button>
+        )}
       </div>
 
       {/* Date Navigation */}
@@ -580,7 +653,7 @@ export default function DailySalesPage() {
                 {sale.operatorName} — {sale.saleType === 'inventory' ? '📦 Inventory' : (sale.pumpNumber === 5 ? 'CNG' : `Pump ${sale.pumpNumber}`)}
               </div>
               <div className="list-item-actions">
-                {userRole !== 'manager' && (
+                {userRole === 'admin' && (
                   <>
                     <button className="btn-icon" onClick={() => openEdit(sale)} title="Edit">✏️</button>
                     <button className="btn-icon danger" onClick={() => handleDelete(sale._id)} title="Delete">🗑️</button>
@@ -674,7 +747,7 @@ export default function DailySalesPage() {
                         {sale.debtSettled ? (
                           <span className="badge badge-active">Settled</span>
                         ) : (
-                          userRole !== 'manager' && (
+                          userRole !== 'viewer' && (
                             <button
                               className="btn btn-sm btn-outline"
                               style={{ fontSize: 11, padding: '3px 8px', borderColor: 'var(--danger)', color: 'var(--danger)', background: 'white' }}
@@ -695,7 +768,7 @@ export default function DailySalesPage() {
                               {e.clientName}: ₹{e.amount}
                             </span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              {!e.settled && !sale.debtSettled && userRole !== 'manager' && (
+                              {!e.settled && !sale.debtSettled && userRole !== 'viewer' && (
                                 <button
                                   className="btn btn-sm btn-outline"
                                   style={{ fontSize: 11, padding: '2px 8px', background: 'white' }}
@@ -794,7 +867,7 @@ export default function DailySalesPage() {
                     required
                   >
                     <option value="">Select pump</option>
-                    {PUMP_CONFIG.map((p) => (
+                    {(pumps.length > 0 ? pumps : PUMP_CONFIG).map((p) => (
                       <option key={p.pumpNumber} value={p.pumpNumber}>
                         {p.name}
                       </option>
@@ -965,6 +1038,42 @@ export default function DailySalesPage() {
           </div>
 
           {/* Payment */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontWeight: 600, fontSize: 13 }}>Payment Collection</span>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline"
+              style={{ fontSize: 11, padding: '3px 8px' }}
+              onClick={() => setShowDenominations(!showDenominations)}
+            >
+              💵 {showDenominations ? 'Hide Note Counter' : 'Note Counter'}
+            </button>
+          </div>
+
+          {showDenominations && (
+            <div style={{ background: 'var(--bg-input)', padding: 10, borderRadius: 6, marginBottom: 12, border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>
+                Cash Note Counter
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {[500, 200, 100, 50, 20, 10].map((note) => (
+                  <div key={note} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: 12, minWidth: 32 }}>₹{note}</span>
+                    <input
+                      className="form-input"
+                      style={{ padding: '4px 6px', fontSize: 12, textAlign: 'center' }}
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={denominations[note]}
+                      onChange={(e) => updateDenomination(note, e.target.value)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Cash (₹)</label>
@@ -1019,6 +1128,7 @@ export default function DailySalesPage() {
                     <div style={{ flex: 2 }}>
                       <input
                         className="form-input"
+                        list="registered-customers"
                         placeholder="Client Name"
                         value={entry.clientName}
                         onChange={(e) => updateDebtEntry(idx, 'clientName', e.target.value)}
@@ -1046,6 +1156,14 @@ export default function DailySalesPage() {
               </div>
             )}
           </div>
+
+          <datalist id="registered-customers">
+            {customers.map((c) => (
+              <option key={c._id} value={c.name}>
+                {c.vehicleNumber ? `${c.vehicleNumber} (Due: ₹${c.currentBalance || 0})` : `Due: ₹${c.currentBalance || 0}`}
+              </option>
+            ))}
+          </datalist>
 
           <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: 16 }}>
             {editingSale ? 'Update Entry' : 'Save Entry'}

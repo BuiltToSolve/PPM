@@ -1,16 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { ObjectId } from 'mongodb';
+import { authenticateRequest } from '@/lib/serverAuth';
 
 export async function PUT(request, { params }) {
   try {
-    const role = request.headers.get('x-user-role');
-    if (role === 'manager') {
-      return NextResponse.json({ error: 'Managers cannot edit sales' }, { status: 403 });
-    }
+    const { user, errorResponse } = await authenticateRequest(request, ['admin', 'manager']);
+    if (errorResponse) return errorResponse;
 
     const { id } = await params;
     const body = await request.json();
+
+    const isDebtOnlyAction = (body.debtSettled !== undefined || body.settleDebtEntryIndex !== undefined) && Object.keys(body).length <= 2;
+    if (!isDebtOnlyAction && user.role === 'manager') {
+      return NextResponse.json({ error: 'Managers cannot edit sales details' }, { status: 403 });
+    }
 
     const collection = await getCollection('dailySales');
 
@@ -222,10 +226,8 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const role = request.headers.get('x-user-role');
-    if (role === 'manager') {
-      return NextResponse.json({ error: 'Managers cannot delete sales' }, { status: 403 });
-    }
+    const { errorResponse } = await authenticateRequest(request, ['admin']);
+    if (errorResponse) return errorResponse;
 
     const { id } = await params;
     const collection = await getCollection('dailySales');

@@ -1,6 +1,12 @@
 import { MongoClient } from 'mongodb';
+import bcrypt from 'bcryptjs';
 
-const uri = 'mongodb+srv://abhias001:loverock007@clusterfordev.zpvwwuj.mongodb.net/?appName=ClusterForDev';
+const uri = process.env.MONGODB_URI;
+
+if (!uri) {
+  console.error('Error: MONGODB_URI environment variable is required.');
+  process.exit(1);
+}
 
 async function seedUser() {
   const client = new MongoClient(uri);
@@ -9,21 +15,22 @@ async function seedUser() {
     const db = client.db('ppm');
     const collection = db.collection('users');
 
+    const hashedPassword = await bcrypt.hash('RV@321', 12);
     const adminUser = await collection.findOne({ username: 'admin' });
     if (!adminUser) {
       await collection.insertOne({
         username: 'admin',
-        password: 'RV@321', // Plain text as requested for manual DB management
+        password: hashedPassword,
+        role: 'admin',
         createdAt: new Date(),
       });
-      console.log('Admin user seeded successfully.');
+      console.log('Admin user seeded successfully with hashed password.');
     } else {
-      // Ensure password matches the required one
       await collection.updateOne(
         { username: 'admin' },
-        { $set: { password: 'RV@321' } }
+        { $set: { password: hashedPassword, role: 'admin', updatedAt: new Date() } }
       );
-      console.log('Admin user already exists. Password verified.');
+      console.log('Admin user verified and password hash updated.');
     }
   } catch (error) {
     console.error('Error seeding user:', error);

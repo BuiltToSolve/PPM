@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
+import { inventoryItemSchema } from '@/lib/validations';
+import { authenticateRequest } from '@/lib/serverAuth';
 
 export async function GET() {
   try {
@@ -13,31 +15,34 @@ export async function GET() {
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const { name, category, stock, price } = body;
+    const { errorResponse } = await authenticateRequest(request, ['admin', 'manager']);
+    if (errorResponse) return errorResponse;
 
-    if (!name || category === undefined || stock === undefined || price === undefined) {
-      return NextResponse.json({ error: 'Name, category, stock, and price are required' }, { status: 400 });
+    const rawBody = await request.json();
+    const result = inventoryItemSchema.safeParse(rawBody);
+
+    if (!result.success) {
+      const firstError = result.error.errors[0];
+      return NextResponse.json(
+        { error: `${firstError.path.join('.')}: ${firstError.message}` },
+        { status: 400 }
+      );
     }
 
+    const { name, category, stock, price } = result.data;
     const collection = await getCollection('inventory');
     
     const newItem = {
       name,
       category,
-      stock: parseInt(stock, 10),
-      price: parseFloat(price),
+      stock: Math.round(stock * 100) / 100,
+      price: Math.round(price * 100) / 100,
       createdAt: new Date(),
       updatedAt: new Date()
     };
 
-    const result = await collection.insertOne(newItem);
-    
-    if (result.acknowledged) {
-      return NextResponse.json({ ...newItem, _id: result.insertedId }, { status: 201 });
-    } else {
-      throw new Error('Failed to insert item');
-    }
+    const insertResult = await collection.insertOne(newItem);
+    return NextResponse.json({ ...newItem, _id: insertResult.insertedId }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

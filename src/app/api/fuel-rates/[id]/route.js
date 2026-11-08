@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { ObjectId } from 'mongodb';
+import { authenticateRequest } from '@/lib/serverAuth';
 
 export async function PUT(request, { params }) {
   try {
-    const role = request.headers.get('x-user-role');
-    if (role === 'manager') {
-      return NextResponse.json({ error: 'Managers cannot change fuel rates' }, { status: 403 });
-    }
+    const { errorResponse } = await authenticateRequest(request, ['admin']);
+    if (errorResponse) return errorResponse;
 
     const { id } = await params;
     const body = await request.json();

@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Search, X, AlertCircle, CheckCircle2, Wallet, Calendar, RotateCcw } from 'lucide-react';
 import Toast from '@/components/Toast';
+import { apiFetch } from '@/lib/apiClient';
+import { downloadCSV } from '@/lib/exportCsv';
 
 const MONTHS = [
   { value: '01', label: 'January' },
@@ -61,29 +63,27 @@ export default function DebtsPage() {
 
   async function handleSettle(saleId) {
     try {
-      await fetch(`/api/daily-sales/${saleId}`, {
+      await apiFetch(`/api/daily-sales/${saleId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ debtSettled: true }),
       });
       setToast('Debt marked as settled');
       fetchDebts();
     } catch (err) {
-      setToast('Error settling debt');
+      setToast(err.message || 'Error settling debt');
     }
   }
 
   async function handleSettleEntry(saleId, index) {
     try {
-      await fetch(`/api/daily-sales/${saleId}`, {
+      await apiFetch(`/api/daily-sales/${saleId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ settleDebtEntryIndex: index }),
       });
       setToast('Debt entry settled');
       fetchDebts();
     } catch (err) {
-      setToast('Error settling debt entry');
+      setToast(err.message || 'Error settling debt entry');
     }
   }
 
@@ -250,10 +250,56 @@ export default function DebtsPage() {
     };
   }, [displayedDebts, searchTrimmed, searchQuery]);
 
+  const exportToCSV = () => {
+    if (!displayedDebts || displayedDebts.length === 0) {
+      setToast('No debt records to export');
+      return;
+    }
+
+    const rows = [];
+    displayedDebts.forEach((sale) => {
+      if (sale.debtEntries && sale.debtEntries.length > 0) {
+        sale.debtEntries.forEach((entry) => {
+          rows.push({
+            Date: sale.date,
+            Operator: sale.operatorName,
+            FuelOrType: sale.fuels ? sale.fuels.map(f => f.fuelType).join(', ') : (sale.fuelType || 'Fuel'),
+            Customer: entry.clientName,
+            Amount: entry.amount || 0,
+            Status: entry.settled ? 'Settled' : 'Unsettled',
+            SlipTotalDebt: sale.debtAmount || 0,
+          });
+        });
+      } else {
+        rows.push({
+          Date: sale.date,
+          Operator: sale.operatorName,
+          FuelOrType: sale.fuels ? sale.fuels.map(f => f.fuelType).join(', ') : (sale.fuelType || 'Fuel'),
+          Customer: 'General / Unnamed',
+          Amount: sale.debtAmount || 0,
+          Status: sale.debtSettled ? 'Settled' : 'Unsettled',
+          SlipTotalDebt: sale.debtAmount || 0,
+        });
+      }
+    });
+
+    const ok = downloadCSV(`debts-${filter}-${periodLabel.replace(/[\s/]+/g, '_')}.csv`, rows);
+    if (ok) {
+      setToast('Debts CSV exported successfully');
+    } else {
+      setToast('Failed to export CSV: No records found');
+    }
+  };
+
   return (
     <div className="page">
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 className="page-title">All Debts</h1>
+        {displayedDebts.length > 0 && (
+          <button className="btn btn-sm btn-outline" onClick={exportToCSV}>
+            Export CSV
+          </button>
+        )}
       </div>
 
       {/* Month & Year Filter Selector */}
@@ -776,7 +822,7 @@ export default function DebtsPage() {
                     {sale.debtSettled ? (
                       <span className="badge badge-active" style={{ marginTop: 4 }}>Settled ✓</span>
                     ) : (
-                      userRole !== 'manager' && (
+                      userRole !== 'viewer' && (
                         <button
                           className="btn btn-sm btn-outline"
                           style={{
@@ -824,7 +870,7 @@ export default function DebtsPage() {
                             {entry.clientName}: ₹{formatCurrency(entry.amount)}
                           </span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            {!entry.settled && !sale.debtSettled && userRole !== 'manager' && (
+                            {!entry.settled && !sale.debtSettled && userRole !== 'viewer' && (
                               <button
                                 className="btn btn-sm btn-outline"
                                 style={{ fontSize: 11, padding: '2px 8px', background: 'white' }}

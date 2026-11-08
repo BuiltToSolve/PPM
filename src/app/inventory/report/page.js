@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Toast from '@/components/Toast';
+import { apiFetch } from '@/lib/apiClient';
+import { downloadCSV } from '@/lib/exportCsv';
 
 function InventoryReportContent() {
   const searchParams = useSearchParams();
@@ -18,7 +20,7 @@ function InventoryReportContent() {
   const [userRole, setUserRole] = useState('admin');
   const [isExporting, setIsExporting] = useState(false);
 
-  async function fetchReport(sDate = startDate, eDate = endDate) {
+  const fetchReport = useCallback(async (sDate = startDate, eDate = endDate) => {
     if (!sDate || !eDate) {
       setToast('Please select start and end dates');
       return;
@@ -29,52 +31,69 @@ function InventoryReportContent() {
     }
     setLoading(true);
     try {
-      const [res, authRes] = await Promise.all([
-        fetch(`/api/inventory-report?startDate=${sDate}&endDate=${eDate}`),
-        fetch('/api/auth/me')
+      const [data, authData] = await Promise.all([
+        apiFetch(`/api/inventory-report?startDate=${sDate}&endDate=${eDate}`),
+        apiFetch('/api/auth/me')
       ]);
-      const data = await res.json();
-      const authData = await authRes.json();
       setReport(data);
       setUserRole(authData.role);
     } catch (err) {
-      setToast('Error loading report');
+      setToast(err.message || 'Error loading report');
     } finally {
       setLoading(false);
     }
-  }
+  }, [startDate, endDate]);
 
   useEffect(() => {
-    if (queryStartDate && queryEndDate) {
-      fetchReport(queryStartDate, queryEndDate);
+    let ignore = false;
+    async function load() {
+      if (queryStartDate && queryEndDate) {
+        setLoading(true);
+        try {
+          const [data, authData] = await Promise.all([
+            apiFetch(`/api/inventory-report?startDate=${queryStartDate}&endDate=${queryEndDate}`),
+            apiFetch('/api/auth/me')
+          ]);
+          if (!ignore) {
+            setReport(data);
+            setUserRole(authData.role);
+          }
+        } catch (err) {
+          if (!ignore) setToast(err.message || 'Error loading report');
+        } finally {
+          if (!ignore) setLoading(false);
+        }
+      }
     }
+    load();
+    return () => {
+      ignore = true;
+    };
   }, [queryStartDate, queryEndDate]);
 
   async function handleSettle(saleId) {
     try {
-      await fetch(`/api/daily-sales/${saleId}`, {
+      await apiFetch(`/api/daily-sales/${saleId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ debtSettled: true }),
       });
       setToast('Debt marked as settled');
       fetchReport();
     } catch (err) {
-      setToast('Error settling debt');
+      setToast(err.message || 'Error settling debt');
     }
   }
 
   async function handleSettleEntry(saleId, index) {
     try {
-      await fetch(`/api/daily-sales/${saleId}`, {
+      await apiFetch(`/api/daily-sales/${saleId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ settleDebtEntryIndex: index }),
       });
       setToast('Debt entry settled');
       fetchReport();
     } catch (err) {
-      setToast('Error settling debt entry');
+      setToast(err.message || 'Error settling debt entry');
     }
   }
 
@@ -114,18 +133,67 @@ function InventoryReportContent() {
     }
   };
 
+  const exportToCSV = () => {
+    if (!report) {
+      setToast('No report data available to export');
+      return;
+    }
+
+    let rows = [];
+    if (report.itemBreakdown && Object.keys(report.itemBreakdown).length > 0) {
+      rows = Object.entries(report.itemBreakdown).map(([name, info]) => ({
+        Period: `${startDate} to ${endDate}`,
+        ItemName: name,
+        QuantitySold: info.qty || 0,
+        Rate: info.rate || 0,
+        TotalAmount: info.amount || 0,
+      }));
+    } else if (report.sales && report.sales.length > 0) {
+      rows = report.sales.map((s) => ({
+        Date: s.date,
+        Operator: s.operatorName,
+        Items: s.items ? s.items.map(i => `${i.name} (x${i.quantity || 1})`).join('; ') : '',
+        TotalAmount: s.totalAmount || 0,
+        Cash: s.cashAmount || 0,
+        Digital: s.digitalAmount || 0,
+        HP: s.hpAmount || 0,
+        Debt: s.debtAmount || 0,
+      }));
+    }
+
+    if (rows.length === 0) {
+      setToast('No inventory sales records to export');
+      return;
+    }
+
+    const ok = downloadCSV(`inventory-report-${startDate}-to-${endDate}.csv`, rows);
+    if (ok) {
+      setToast('CSV exported successfully');
+    } else {
+      setToast('Failed to export CSV: No records found');
+    }
+  };
+
   return (
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">Inventory Sales Report</h1>
         {report && (
-          <button 
-            className="btn btn-sm btn-outline" 
-            onClick={exportToPDF} 
-            disabled={isExporting}
-          >
-            {isExporting ? 'Exporting...' : 'Export PDF'}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button 
+              className="btn btn-sm btn-outline" 
+              onClick={exportToCSV}
+            >
+              Export CSV
+            </button>
+            <button 
+              className="btn btn-sm btn-outline" 
+              onClick={exportToPDF} 
+              disabled={isExporting}
+            >
+              {isExporting ? 'Exporting...' : 'Export PDF'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -351,7 +419,7 @@ function InventoryReportContent() {
                         {ds.debtSettled ? (
                           <span className="badge badge-active" style={{ marginTop: 4 }}>Settled ✓</span>
                         ) : (
-                          userRole !== 'manager' && (
+                          userRole !== 'viewer' && (
                             <button
                               className="btn btn-sm btn-outline"
                               style={{
@@ -379,7 +447,7 @@ function InventoryReportContent() {
                               {entry.clientName}: ₹{entry.amount.toLocaleString('en-IN')}
                             </span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              {!entry.settled && !ds.debtSettled && userRole !== 'manager' && (
+                              {!entry.settled && !ds.debtSettled && userRole !== 'viewer' && (
                                 <button
                                   className="btn btn-sm btn-outline"
                                   style={{ fontSize: 11, padding: '2px 8px', background: 'white' }}

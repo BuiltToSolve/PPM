@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Modal from '@/components/Modal';
 import Toast from '@/components/Toast';
+import { apiFetch } from '@/lib/apiClient';
 
 export default function InventoryPage() {
   const [items, setItems] = useState([]);
@@ -10,6 +11,7 @@ export default function InventoryPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [toast, setToast] = useState('');
+  const [userRole, setUserRole] = useState('admin');
   
   // Form State
   const [name, setName] = useState('');
@@ -19,8 +21,7 @@ export default function InventoryPage() {
 
   const fetchItems = useCallback(async () => {
     try {
-      const res = await fetch('/api/inventory');
-      const json = await res.json();
+      const json = await apiFetch('/api/inventory');
       setItems(json);
     } catch (err) {
       console.error('Failed to load inventory', err);
@@ -30,8 +31,28 @@ export default function InventoryPage() {
   }, []);
 
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+    let ignore = false;
+    async function init() {
+      try {
+        const [json, auth] = await Promise.all([
+          apiFetch('/api/inventory'),
+          apiFetch('/api/auth/me').catch(() => null),
+        ]);
+        if (!ignore) {
+          setItems(json);
+          if (auth?.role) setUserRole(auth.role);
+        }
+      } catch (err) {
+        console.error('Failed to load inventory', err);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+    init();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   function openAdd() {
     setEditingItem(null);
@@ -64,16 +85,14 @@ export default function InventoryPage() {
       };
 
       if (editingItem) {
-        await fetch(`/api/inventory/${editingItem._id}`, {
+        await apiFetch(`/api/inventory/${editingItem._id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
         setToast('Item updated');
       } else {
-        await fetch('/api/inventory', {
+        await apiFetch('/api/inventory', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
         setToast('Item added');
@@ -82,7 +101,7 @@ export default function InventoryPage() {
       setShowModal(false);
       fetchItems();
     } catch (err) {
-      setToast('Error saving item');
+      setToast(err.message || 'Error saving item');
     }
   }
 
@@ -90,13 +109,13 @@ export default function InventoryPage() {
     if (!confirm('Are you sure you want to delete this item?')) return;
     
     try {
-      await fetch(`/api/inventory/${id}`, {
+      await apiFetch(`/api/inventory/${id}`, {
         method: 'DELETE',
       });
       setToast('Item deleted');
       fetchItems();
     } catch (err) {
-      setToast('Error deleting item');
+      setToast(err.message || 'Error deleting item');
     }
   }
 
@@ -127,9 +146,11 @@ export default function InventoryPage() {
           Add
         </button>
         <h1 className="page-title">Inventory</h1>
-        <button className="btn btn-primary" onClick={openAdd}>
-          + Add
-        </button>
+        {userRole !== 'viewer' && (
+          <button className="btn btn-primary" onClick={openAdd}>
+            + Add
+          </button>
+        )}
       </div>
 
       {items.length === 0 ? (
@@ -159,10 +180,14 @@ export default function InventoryPage() {
                     {item.stock}
                   </div>
                 </div>
-                <div className="list-item-actions">
-                  <button className="btn-icon" onClick={() => openEdit(item)} title="Edit">✏️</button>
-                  <button className="btn-icon danger" onClick={() => handleDelete(item._id)} title="Delete">🗑️</button>
-                </div>
+                {userRole !== 'viewer' && (
+                  <div className="list-item-actions">
+                    <button className="btn-icon" onClick={() => openEdit(item)} title="Edit">✏️</button>
+                    {userRole === 'admin' && (
+                      <button className="btn-icon danger" onClick={() => handleDelete(item._id)} title="Delete">🗑️</button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}

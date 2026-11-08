@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import Toast from '@/components/Toast';
+import { apiFetch } from '@/lib/apiClient';
+import { downloadCSV } from '@/lib/exportCsv';
 
 function ReportContent() {
   const searchParams = useSearchParams();
@@ -17,60 +19,76 @@ function ReportContent() {
   const [userRole, setUserRole] = useState('admin');
   const [isExporting, setIsExporting] = useState(false);
 
-  async function fetchReport(targetDate = date) {
+  const fetchReport = useCallback(async (targetDate = date) => {
     if (!targetDate) {
       setToast('Please select a date');
       return;
     }
     setLoading(true);
     try {
-      const [res, authRes] = await Promise.all([
-        fetch(`/api/report?date=${targetDate}`),
-        fetch('/api/auth/me')
+      const [data, authData] = await Promise.all([
+        apiFetch(`/api/report?date=${targetDate}`),
+        apiFetch('/api/auth/me')
       ]);
-      const data = await res.json();
-      const authData = await authRes.json();
       setReport(data);
       setUserRole(authData.role);
     } catch (err) {
-      setToast('Error loading report');
+      setToast(err.message || 'Error loading report');
     } finally {
       setLoading(false);
     }
-  }
+  }, [date]);
 
   useEffect(() => {
-    if (queryDate) {
-      fetchReport(queryDate);
+    let ignore = false;
+    async function load() {
+      if (queryDate) {
+        setLoading(true);
+        try {
+          const [data, authData] = await Promise.all([
+            apiFetch(`/api/report?date=${queryDate}`),
+            apiFetch('/api/auth/me')
+          ]);
+          if (!ignore) {
+            setReport(data);
+            setUserRole(authData.role);
+          }
+        } catch (err) {
+          if (!ignore) setToast(err.message || 'Error loading report');
+        } finally {
+          if (!ignore) setLoading(false);
+        }
+      }
     }
+    load();
+    return () => {
+      ignore = true;
+    };
   }, [queryDate]);
 
   async function handleSettle(saleId) {
     try {
-      await fetch(`/api/daily-sales/${saleId}`, {
+      await apiFetch(`/api/daily-sales/${saleId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ debtSettled: true }),
       });
       setToast('Debt marked as settled');
-      // Refresh report
       fetchReport();
     } catch (err) {
-      setToast('Error settling debt');
+      setToast(err.message || 'Error settling debt');
     }
   }
 
   async function handleSettleEntry(saleId, index) {
     try {
-      await fetch(`/api/daily-sales/${saleId}`, {
+      await apiFetch(`/api/daily-sales/${saleId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ settleDebtEntryIndex: index }),
       });
       setToast('Debt entry settled');
       fetchReport();
     } catch (err) {
-      setToast('Error settling debt entry');
+      setToast(err.message || 'Error settling debt entry');
     }
   }
 
@@ -113,6 +131,51 @@ function ReportContent() {
     }
   };
 
+  const exportToCSV = () => {
+    if (!report) {
+      setToast('No report data available to export');
+      return;
+    }
+
+    let rows = [];
+    if (report.sales && report.sales.length > 0) {
+      rows = report.sales.map((s) => ({
+        Date: s.date,
+        Pump: s.pumpNumber === 5 ? 'CNG' : `Pump ${s.pumpNumber}`,
+        Operator: s.operatorName,
+        Fuels: s.fuels ? s.fuels.map(f => `${f.fuelType} (${f.saleQty}L @ ₹${f.rate})`).join('; ') : s.fuelType || '',
+        TotalAmount: s.totalAmount || 0,
+        Cash: s.cashAmount || 0,
+        Digital: s.digitalAmount || 0,
+        HP: s.hpAmount || 0,
+        Debt: s.debtAmount || 0,
+        DebtSettled: s.debtSettled ? 'Yes' : (s.debtAmount > 0 ? 'No' : 'N/A'),
+        ExtraIncome: s.extraIncome || 0,
+        Expenses: s.expensesTotal || 0,
+      }));
+    } else if (report.fuelBreakdown && Object.keys(report.fuelBreakdown).length > 0) {
+      rows = Object.entries(report.fuelBreakdown).map(([fuel, info]) => ({
+        Date: date,
+        FuelType: fuel,
+        QuantityLiters: info.qty,
+        Rate: info.rate,
+        TotalAmount: info.amount,
+      }));
+    }
+
+    if (rows.length === 0) {
+      setToast('No sales records to export for this date');
+      return;
+    }
+
+    const ok = downloadCSV(`sales-report-${date}.csv`, rows);
+    if (ok) {
+      setToast('CSV exported successfully');
+    } else {
+      setToast('Failed to export CSV: No records found');
+    }
+  };
+
   const displayGrandTotal = report ? report.grandTotal - (report.cngSummary?.totalAmount || 0) : 0;
   const displayGrandCash = report ? report.grandCash - (report.cngSummary?.cash || 0) : 0;
   const displayGrandDigital = report ? report.grandDigital - (report.cngSummary?.digital || 0) : 0;
@@ -125,13 +188,21 @@ function ReportContent() {
       <div className="page-header">
         <h1 className="page-title">Sales Report</h1>
         {report && (
-          <button 
-            className="btn btn-sm btn-outline" 
-            onClick={exportToPDF} 
-            disabled={isExporting}
-          >
-            {isExporting ? 'Exporting...' : 'Export PDF'}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button 
+              className="btn btn-sm btn-outline" 
+              onClick={exportToCSV}
+            >
+              Export CSV
+            </button>
+            <button 
+              className="btn btn-sm btn-outline" 
+              onClick={exportToPDF} 
+              disabled={isExporting}
+            >
+              {isExporting ? 'Exporting...' : 'Export PDF'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -410,7 +481,7 @@ function ReportContent() {
                         {ds.debtSettled ? (
                           <span className="badge badge-active" style={{ marginTop: 4 }}>Settled ✓</span>
                         ) : (
-                          userRole !== 'manager' && (
+                          userRole !== 'viewer' && (
                             <button
                               className="btn btn-sm btn-outline"
                               style={{
@@ -438,7 +509,7 @@ function ReportContent() {
                               {entry.clientName}: ₹{entry.amount.toLocaleString('en-IN')}
                             </span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              {!entry.settled && !ds.debtSettled && userRole !== 'manager' && (
+                              {!entry.settled && !ds.debtSettled && userRole !== 'viewer' && (
                                 <button
                                   className="btn btn-sm btn-outline"
                                   style={{ fontSize: 11, padding: '2px 8px', background: 'white' }}

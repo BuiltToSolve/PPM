@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { ObjectId } from 'mongodb';
+import { authenticateRequest } from '@/lib/serverAuth';
 
 export async function PUT(request, { params }) {
   try {
+    const { errorResponse } = await authenticateRequest(request, ['admin', 'manager']);
+    if (errorResponse) return errorResponse;
+
     const { id } = await params;
     const body = await request.json();
     const { name, category, stock, price } = body;
@@ -37,6 +41,9 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
+    const { errorResponse } = await authenticateRequest(request, ['admin']);
+    if (errorResponse) return errorResponse;
+
     const { id } = await params;
     const collection = await getCollection('inventory');
     

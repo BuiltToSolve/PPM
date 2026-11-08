@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
 import { signToken } from '@/lib/auth';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request) {
   try {
@@ -11,9 +12,30 @@ export async function POST(request) {
     }
 
     const collection = await getCollection('users');
-    const user = await collection.findOne({ username });
+    const user = await collection.findOne({ username: username.trim() });
 
-    if (!user || user.password !== password) {
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    let isValid = false;
+    const isBcryptHash = typeof user.password === 'string' && user.password.startsWith('$2');
+
+    if (isBcryptHash) {
+      isValid = await bcrypt.compare(password, user.password);
+    } else {
+      // Backwards compatibility for legacy unhashed passwords: verify and immediately upgrade hash
+      if (user.password === password) {
+        isValid = true;
+        const newHash = await bcrypt.hash(password, 12);
+        await collection.updateOne(
+          { _id: user._id },
+          { $set: { password: newHash, updatedAt: new Date() } }
+        );
+      }
+    }
+
+    if (!isValid) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
@@ -26,7 +48,7 @@ export async function POST(request) {
 
     // Set cookie
     const isHttps = new URL(request.url).protocol === 'https:' || request.headers.get('x-forwarded-proto') === 'https';
-    const response = NextResponse.json({ success: true, username: user.username });
+    const response = NextResponse.json({ success: true, username: user.username, role: user.role || 'admin' });
     response.cookies.set('auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production' && isHttps,

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Modal from '@/components/Modal';
 import Toast from '@/components/Toast';
+import { apiFetch } from '@/lib/apiClient';
 
 export default function FuelRatesPage() {
   const [rates, setRates] = useState([]);
@@ -31,11 +32,33 @@ export default function FuelRatesPage() {
   }, []);
 
   useEffect(() => {
-    fetchRates();
-  }, [fetchRates]);
+    let ignore = false;
+    async function init() {
+      try {
+        const [res, authRes] = await Promise.all([
+          fetch('/api/fuel-rates'),
+          fetch('/api/auth/me')
+        ]);
+        const json = await res.json();
+        const authData = await authRes.json();
+        if (!ignore) {
+          setRates(json);
+          setUserRole(authData.role);
+        }
+      } catch (err) {
+        console.error('Failed to load rates', err);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+    init();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   function openEdit(rate) {
-    if (userRole === 'manager') return;
+    if (userRole !== 'admin') return;
     setEditingRate(rate);
     setRateValue(rate.rate.toString());
     setShowModal(true);
@@ -46,16 +69,15 @@ export default function FuelRatesPage() {
     if (!rateValue || isNaN(rateValue)) return;
 
     try {
-      await fetch(`/api/fuel-rates/${editingRate._id}`, {
+      await apiFetch(`/api/fuel-rates/${editingRate._id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rate: parseFloat(rateValue) }),
       });
       setToast(`${editingRate.fuelType} rate updated`);
       setShowModal(false);
       fetchRates();
     } catch (err) {
-      setToast('Error updating rate');
+      setToast(err.message || 'Error updating rate');
     }
   }
 
@@ -85,7 +107,7 @@ export default function FuelRatesPage() {
           key={rate._id} 
           className="rate-card" 
           onClick={() => openEdit(rate)} 
-          style={{ cursor: userRole === 'manager' ? 'default' : 'pointer' }}
+          style={{ cursor: userRole === 'admin' ? 'pointer' : 'default' }}
         >
           <div className="rate-info">
             <div className="rate-fuel-name">

@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getCollection } from '@/lib/db';
+import { authenticateRequest } from '@/lib/serverAuth';
 
-export async function GET() {
+export async function GET(request) {
   try {
+    const { errorResponse } = await authenticateRequest(request, ['admin']);
+    if (errorResponse) return errorResponse;
+
     const collection = await getCollection('dailySales');
     const sales = await collection.find({}).toArray();
 

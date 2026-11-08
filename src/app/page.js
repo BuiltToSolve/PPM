@@ -11,27 +11,37 @@ export default function Dashboard() {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
   useEffect(() => {
-    fetchDashboard();
-  }, []);
+    let ignore = false;
 
-  async function fetchDashboard() {
-    try {
-      const [res, authRes] = await Promise.all([
-        fetch(`/api/dashboard?date=${today}`),
-        fetch('/api/auth/me')
-      ]);
-      const json = await res.json();
-      const authData = await authRes.json();
-      setData(json);
-      if (authData.username) {
-        setUsername(authData.username.charAt(0).toUpperCase() + authData.username.slice(1));
+    async function loadData() {
+      try {
+        const [res, authRes] = await Promise.all([
+          fetch(`/api/dashboard?date=${today}`),
+          fetch('/api/auth/me')
+        ]);
+        const json = await res.json();
+        const authData = await authRes.json();
+        if (!ignore) {
+          setData(json);
+          if (authData.username) {
+            setUsername(authData.username.charAt(0).toUpperCase() + authData.username.slice(1));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load dashboard', err);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      console.error('Failed to load dashboard', err);
-    } finally {
-      setLoading(false);
     }
-  }
+
+    loadData();
+
+    return () => {
+      ignore = true;
+    };
+  }, [today]);
 
   if (loading) {
     return (

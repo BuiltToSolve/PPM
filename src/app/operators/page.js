@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Modal from '@/components/Modal';
 import Toast from '@/components/Toast';
+import { apiFetch } from '@/lib/apiClient';
 
 export default function OperatorsPage() {
   const [operators, setOperators] = useState([]);
@@ -12,11 +13,11 @@ export default function OperatorsPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [toast, setToast] = useState('');
+  const [userRole, setUserRole] = useState('admin');
 
   const fetchOperators = useCallback(async () => {
     try {
-      const res = await fetch('/api/operators');
-      const json = await res.json();
+      const json = await apiFetch('/api/operators');
       setOperators(json);
     } catch (err) {
       console.error('Failed to load operators', err);
@@ -26,8 +27,28 @@ export default function OperatorsPage() {
   }, []);
 
   useEffect(() => {
-    fetchOperators();
-  }, [fetchOperators]);
+    let ignore = false;
+    async function init() {
+      try {
+        const [json, auth] = await Promise.all([
+          apiFetch('/api/operators'),
+          apiFetch('/api/auth/me').catch(() => null),
+        ]);
+        if (!ignore) {
+          setOperators(json);
+          if (auth?.role) setUserRole(auth.role);
+        }
+      } catch (err) {
+        console.error('Failed to load operators', err);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+    init();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   function openAdd() {
     setEditingOp(null);
@@ -49,16 +70,14 @@ export default function OperatorsPage() {
 
     try {
       if (editingOp) {
-        await fetch(`/api/operators/${editingOp._id}`, {
+        await apiFetch(`/api/operators/${editingOp._id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, phone }),
         });
         setToast('Operator updated');
       } else {
-        await fetch('/api/operators', {
+        await apiFetch('/api/operators', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, phone }),
         });
         setToast('Operator added');
@@ -66,21 +85,20 @@ export default function OperatorsPage() {
       setShowModal(false);
       fetchOperators();
     } catch (err) {
-      setToast('Error saving operator');
+      setToast(err.message || 'Error saving operator');
     }
   }
 
   async function toggleActive(op) {
     try {
-      await fetch(`/api/operators/${op._id}`, {
+      await apiFetch(`/api/operators/${op._id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: !op.active }),
       });
       setToast(op.active ? 'Operator deactivated' : 'Operator activated');
       fetchOperators();
     } catch (err) {
-      setToast('Error updating operator');
+      setToast(err.message || 'Error updating operator');
     }
   }
 
@@ -96,7 +114,9 @@ export default function OperatorsPage() {
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">Operators</h1>
-        <button className="btn btn-primary btn-sm" onClick={openAdd}>+ Add</button>
+        {userRole !== 'viewer' && (
+          <button className="btn btn-primary btn-sm" onClick={openAdd}>+ Add</button>
+        )}
       </div>
 
       {operators.length === 0 ? (
@@ -117,16 +137,18 @@ export default function OperatorsPage() {
                 </span>
               </div>
             </div>
-            <div className="list-item-actions">
-              <button className="btn-icon" onClick={() => openEdit(op)} title="Edit">✏️</button>
-              <button
-                className={`btn-icon ${op.active ? 'danger' : ''}`}
-                onClick={() => toggleActive(op)}
-                title={op.active ? 'Deactivate' : 'Activate'}
-              >
-                {op.active ? '🚫' : '✅'}
-              </button>
-            </div>
+            {userRole !== 'viewer' && (
+              <div className="list-item-actions">
+                <button className="btn-icon" onClick={() => openEdit(op)} title="Edit">✏️</button>
+                <button
+                  className={`btn-icon ${op.active ? 'danger' : ''}`}
+                  onClick={() => toggleActive(op)}
+                  title={op.active ? 'Deactivate' : 'Activate'}
+                >
+                  {op.active ? '🚫' : '✅'}
+                </button>
+              </div>
+            )}
           </div>
         ))
       )}

@@ -6,16 +6,19 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test tests/screens/*.test.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "html2pdf.js": "^0.14.0",
     "jose": "^6.2.3",
     "lucide-react": "^1.23.0",
     "mongodb": "^7.4.0",
     "next": "16.2.10",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "eslint": "^9",

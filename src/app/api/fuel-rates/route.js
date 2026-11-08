@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCollection, seedFuelRates } from '@/lib/db';
+import { authenticateRequest } from '@/lib/serverAuth';
 
 export async function GET() {
   try {
@@ -14,6 +15,9 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    const { errorResponse } = await authenticateRequest(request, ['admin']);
+    if (errorResponse) return errorResponse;
+
     const body = await request.json();
     const { fuelType, rate } = body;
 
