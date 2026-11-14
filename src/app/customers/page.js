@@ -5,7 +5,7 @@ import Modal from '@/components/Modal';
 import Toast from '@/components/Toast';
 import { apiFetch } from '@/lib/apiClient';
 import { downloadCSV } from '@/lib/exportCsv';
-import { UserCheck, Plus, Search, DollarSign } from 'lucide-react';
+import { UserCheck, Plus, Search, DollarSign, Trash2 } from 'lucide-react';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([]);
@@ -13,7 +13,10 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customerToDelete, setCustomerToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState('');
   const [userRole, setUserRole] = useState('admin');
 
@@ -124,6 +127,33 @@ export default function CustomersPage() {
       fetchCustomers();
     } catch (err) {
       setToast(err.message || 'Error recording payment');
+    }
+  }
+
+  function promptDeleteCustomer(cust) {
+    if ((cust.currentBalance || 0) > 0) {
+      setToast(`Cannot delete "${cust.name}": Balance due is ₹${cust.currentBalance.toLocaleString('en-IN')}. All dues must be cleared to ₹0 first.`);
+      return;
+    }
+    setCustomerToDelete(cust);
+    setShowDeleteModal(true);
+  }
+
+  async function handleDeleteCustomer() {
+    if (!customerToDelete) return;
+    setDeleting(true);
+    try {
+      await apiFetch(`/api/customers/${customerToDelete._id}`, {
+        method: 'DELETE',
+      });
+      setToast(`Customer "${customerToDelete.name}" deleted successfully`);
+      setShowDeleteModal(false);
+      setCustomerToDelete(null);
+      fetchCustomers();
+    } catch (err) {
+      setToast(err.message || 'Error deleting customer');
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -238,15 +268,37 @@ export default function CustomersPage() {
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
                   {(cust.currentBalance || 0) > 0 ? 'Balance Due' : 'Cleared'}
                 </div>
-                {userRole !== 'viewer' && (
-                  <button
-                    className="btn btn-sm btn-outline"
-                    style={{ fontSize: 12, padding: '4px 10px' }}
-                    onClick={() => openPayment(cust)}
-                  >
-                    <DollarSign size={14} /> Receive Payment
-                  </button>
-                )}
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                  {userRole !== 'viewer' && (
+                    <button
+                      className="btn btn-sm btn-outline"
+                      style={{ fontSize: 12, padding: '4px 10px' }}
+                      onClick={() => openPayment(cust)}
+                    >
+                      <DollarSign size={14} /> Receive Payment
+                    </button>
+                  )}
+                  {userRole === 'admin' && (
+                    <button
+                      className="btn btn-sm btn-outline"
+                      style={{
+                        padding: '5px 8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: (cust.currentBalance || 0) > 0 ? 'var(--text-muted)' : 'var(--danger)',
+                        borderColor: (cust.currentBalance || 0) > 0 ? 'var(--border)' : 'rgba(250, 82, 82, 0.4)',
+                        background: 'transparent',
+                        cursor: (cust.currentBalance || 0) > 0 ? 'not-allowed' : 'pointer',
+                        opacity: (cust.currentBalance || 0) > 0 ? 0.45 : 1,
+                      }}
+                      title={(cust.currentBalance || 0) > 0 ? `Cannot delete: Balance of ₹${cust.currentBalance.toLocaleString('en-IN')} pending` : `Delete ${cust.name}`}
+                      onClick={() => promptDeleteCustomer(cust)}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -349,6 +401,60 @@ export default function CustomersPage() {
             Confirm & Reduce Balance
           </button>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => { if (!deleting) setShowDeleteModal(false); }}
+        title="Confirm Delete Customer"
+      >
+        <div style={{ padding: '8px 0' }}>
+          <p style={{ fontSize: 14, marginBottom: 12, lineHeight: 1.5 }}>
+            Are you sure you want to delete customer <strong>{customerToDelete?.name}</strong>?
+          </p>
+          <div style={{
+            background: 'rgba(64, 192, 87, 0.08)',
+            border: '1px solid rgba(64, 192, 87, 0.3)',
+            borderRadius: 6,
+            padding: '10px 12px',
+            marginBottom: 14,
+            fontSize: 13,
+            color: 'var(--success)',
+            fontWeight: 500,
+          }}>
+            ✓ Outstanding Balance: <strong>₹0.00</strong> (Fully Cleared)
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
+            Deleting will remove this customer from the active Customer Khata ledger. All historical sales, debt records, and receipts associated with this customer will remain safely preserved in the database.
+          </p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => setShowDeleteModal(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn"
+              style={{
+                background: 'var(--danger)',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+              onClick={handleDeleteCustomer}
+              disabled={deleting}
+            >
+              <Trash2 size={15} />
+              {deleting ? 'Deleting...' : 'Delete Customer'}
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {toast && <Toast message={toast} onDone={() => setToast('')} />}

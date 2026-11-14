@@ -244,24 +244,44 @@ export default function DailySalesPage() {
           };
         });
 
-        // Continuity: auto-fetch latest closing reading for this pump
+        // Continuity: check current day's existing sales in memory first
         if (value) {
-          apiFetch(`/api/pumps?pumpNumber=${value}`).then((data) => {
-            if (data?.lastReadings) {
-              setFormData((curr) => {
-                const withContinuity = { ...curr.fuels };
-                Object.keys(withContinuity).forEach((f) => {
-                  if (data.lastReadings[f] !== undefined && !withContinuity[f].openingReading) {
-                    withContinuity[f] = {
-                      ...withContinuity[f],
-                      openingReading: data.lastReadings[f].toString(),
-                    };
-                  }
-                });
-                return { ...curr, fuels: withContinuity };
+          const parsedPump = parseInt(value, 10);
+          const sameDaySales = sales
+            .filter((s) => (s.pumpNumber === parsedPump || s.pumpNumber === value.toString()) && s.saleType === 'fuel')
+            .sort((a, b) => new Date(a.createdAt || a.date) - new Date(b.createdAt || b.date));
+
+          if (sameDaySales.length > 0) {
+            const lastSameDaySale = sameDaySales[sameDaySales.length - 1];
+            if (lastSameDaySale?.fuels) {
+              lastSameDaySale.fuels.forEach((f) => {
+                if (updated.fuels[f.fuelType] && f.closingReading !== undefined) {
+                  updated.fuels[f.fuelType].openingReading = f.closingReading.toString();
+                }
               });
             }
-          }).catch(() => {});
+          }
+
+          // If any fuel still lacks opening reading, query API scoped to selectedDate
+          const hasMissingOpening = Object.values(updated.fuels).some((fuel) => !fuel.openingReading);
+          if (hasMissingOpening) {
+            apiFetch(`/api/pumps?pumpNumber=${value}&date=${selectedDate}`).then((data) => {
+              if (data?.lastReadings) {
+                setFormData((curr) => {
+                  const withContinuity = { ...curr.fuels };
+                  Object.keys(withContinuity).forEach((f) => {
+                    if (data.lastReadings[f] !== undefined && !withContinuity[f].openingReading) {
+                      withContinuity[f] = {
+                        ...withContinuity[f],
+                        openingReading: data.lastReadings[f].toString(),
+                      };
+                    }
+                  });
+                  return { ...curr, fuels: withContinuity };
+                });
+              }
+            }).catch(() => {});
+          }
         }
       }
 

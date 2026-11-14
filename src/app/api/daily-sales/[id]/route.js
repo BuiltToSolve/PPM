@@ -20,6 +20,9 @@ export async function PUT(request, { params }) {
 
     const updateData = { ...body, updatedAt: new Date() };
     delete updateData._id;
+    if (updateData.pumpNumber !== undefined && updateData.pumpNumber !== '') {
+      updateData.pumpNumber = parseInt(updateData.pumpNumber, 10);
+    }
 
     // Handle debt settle action
     if (body.debtSettled !== undefined && Object.keys(body).length <= 2) {

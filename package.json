@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/screens/*.test.js"
+    "test": "node --env-file=.env.local --test tests/screens/*.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -12,9 +12,23 @@ export async function GET(request) {
 
     // If query requests last readings for a specific pump
     if (pumpNumber) {
+      const date = searchParams.get('date');
       const salesCollection = await getCollection('dailySales');
+
+      const filter = {
+        $or: [
+          { pumpNumber: parseInt(pumpNumber, 10) },
+          { pumpNumber: pumpNumber.toString() }
+        ],
+        saleType: 'fuel'
+      };
+
+      if (date) {
+        filter.date = { $lte: date };
+      }
+
       const lastSale = await salesCollection
-        .find({ pumpNumber: parseInt(pumpNumber), saleType: 'fuel' })
+        .find(filter)
         .sort({ date: -1, createdAt: -1 })
         .limit(1)
         .toArray();

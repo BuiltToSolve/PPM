@@ -74,7 +74,32 @@ describe('Screen 4: Customer Khata (/customers)', () => {
     assert.match(payRes.data.error, /greater than zero/i);
   });
 
-  test('DELETE /api/customers/:id soft deletes customer (active: false)', async () => {
+  test('DELETE /api/customers/:id rejects deletion if balance > 0 with 400', async () => {
+    // 1. Create a customer
+    const newCust = await apiPost('/api/customers', {
+      name: `Unsettled Fleet ${Date.now()}`,
+      phone: '9876543211',
+      creditLimit: 50000,
+    }, adminCookie);
+    assert.equal(newCust.status, 201);
+    const withDebtId = newCust.data._id;
+
+    // Simulate outstanding balance of ₹2,500
+    await apiPut(`/api/customers/${withDebtId}`, { currentBalance: 2500 }, adminCookie);
+
+    // Attempt DELETE -> Must fail with 400
+    const delRes = await apiDelete(`/api/customers/${withDebtId}`, adminCookie);
+    assert.equal(delRes.status, 400);
+    assert.match(delRes.data.error, /outstanding balance/i);
+
+    // Clear balance to 0 and retry DELETE -> must succeed
+    await apiPut(`/api/customers/${withDebtId}`, { currentBalance: 0 }, adminCookie);
+    const delSuccessRes = await apiDelete(`/api/customers/${withDebtId}`, adminCookie);
+    assert.equal(delSuccessRes.status, 200);
+    assert.equal(delSuccessRes.data.success, true);
+  });
+
+  test('DELETE /api/customers/:id soft deletes customer when balance is 0', async () => {
     assert.ok(customerId);
     const res = await apiDelete(`/api/customers/${customerId}`, adminCookie);
     assert.equal(res.status, 200);

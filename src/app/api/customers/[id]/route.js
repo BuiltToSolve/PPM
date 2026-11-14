@@ -54,6 +54,7 @@ export async function PUT(request, { params }) {
     if (body.phone !== undefined) updateData.phone = body.phone.trim();
     if (body.vehicleNumber !== undefined) updateData.vehicleNumber = body.vehicleNumber.trim().toUpperCase();
     if (body.creditLimit !== undefined) updateData.creditLimit = parseFloat(body.creditLimit) || 0;
+    if (body.currentBalance !== undefined) updateData.currentBalance = parseFloat(body.currentBalance) || 0;
 
     const result = await collection.findOneAndUpdate(
       { _id: new ObjectId(id) },
@@ -79,18 +80,27 @@ export async function DELETE(request, { params }) {
     const { id } = await params;
     const collection = await getCollection('customers');
 
-    // Soft delete
-    const result = await collection.findOneAndUpdate(
+    // 1. Check if customer exists and balance is fully cleared (0)
+    const customer = await collection.findOne({ _id: new ObjectId(id) });
+    if (!customer) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+    }
+
+    if ((customer.currentBalance || 0) > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete customer: Outstanding balance of ₹${customer.currentBalance.toLocaleString('en-IN')} must be cleared first.` },
+        { status: 400 }
+      );
+    }
+
+    // 2. Soft delete - mark as inactive (safely preserves all sales, debts, and transaction history)
+    await collection.findOneAndUpdate(
       { _id: new ObjectId(id) },
       { $set: { active: false, updatedAt: new Date() } },
       { returnDocument: 'after' }
     );
 
-    if (!result) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: 'Customer deactivated successfully' });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
